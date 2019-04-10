@@ -85,19 +85,24 @@ def pressure(update, context):
 
     text = (
         '''I see.
-        You'd like pressure graph for all the time or only for today?'''
-        )
-    context.bot.send_message(
-        chat_id=update.message.chat_id, text=text, reply_markup=period_markup
+        If you'd like a graph, please choose period,
+        if no, press /cancel'''
         )
 
-    return GRAPH
+    context.bot.send_message(
+        chat_id=update.message.chat_id, text=text, reply_markup=telegramcalendar.create_calendar()
+        )
+
+    return GRAPH_FOR_PERIOD
 
 
 def graph(update, context):
     user_choice = update.message.text
+    arms = ["r", "l"]
+    graphs = ['r_graph.png', 'l_graph.png']
 
     if user_choice == "Don't need a graph":
+
         text = (
             '''Ok. New pressure data added.
             BYE!'''
@@ -107,24 +112,24 @@ def graph(update, context):
         return START
 
     elif user_choice == "All the time graph":
-        right_arm_data = read_and_prepare_json_pressure_file('r')
-        left_arm_data = read_and_prepare_json_pressure_file('l')
-        create_graph(right_arm_data)
-        create_graph(left_arm_data)
 
-        context.bot.send_document(
-            chat_id=update.message.chat_id, document=open('r_graph.png', 'rb')
+        for arm in arms:
+            arm_data = read_and_prepare_json_pressure_file(arm)
+            create_graph(arm_data)
+
+        for graph in graphs:
+            context.bot.send_document(
+                chat_id=update.message.chat_id, document=open(graph, 'rb')
             )
-        context.bot.send_document(
-            chat_id=update.message.chat_id, document=open('l_graph.png', 'rb')
-            )
+
         return START
 
     elif user_choice == "Graph for period":
+
         context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text="Please select a date: ",
-        reply_markup=telegramcalendar.create_calendar()
+            chat_id=update.message.chat_id,
+            text="Please select a date: ",
+            reply_markup=telegramcalendar.create_calendar()
         )
         return GRAPH_FOR_PERIOD
         
@@ -132,24 +137,24 @@ def graph(update, context):
         date = datetime.datetime.now().date()
         str_date = date.strftime("%d.%m.%Y")
 
-        right_arm_data = read_and_prepare_json_pressure_file_per_day('r', str_date)
-        left_arm_data = read_and_prepare_json_pressure_file_per_day('l', str_date)
-        create_graph(right_arm_data)
-        create_graph(left_arm_data)
+        for arm in arms:
+            arm_data = read_and_prepare_json_pressure_file_per_day(arm, str_date)
+            create_graph(arm_data)
 
-        context.bot.send_document(
-            chat_id=update.message.chat_id, document=open('r_graph.png', 'rb')
+        for graph in graphs:
+            context.bot.send_document(
+                chat_id=update.message.chat_id, document=open(graph, 'rb')
             )
-        context.bot.send_document(
-            chat_id=update.message.chat_id, document=open('l_graph.png', 'rb')
-            )
+
         return START
 
 
 def inline_handler(update, context):
-
     selected, date = telegramcalendar.process_calendar_selection(update, context)
     str_date = date.strftime("%d.%m.%Y")
+
+    arms = ["r", "l"]
+    graphs = ['r_graph.png', 'l_graph.png']
 
     if selected:
         context.bot.send_message(
@@ -160,28 +165,29 @@ def inline_handler(update, context):
 
     if 'first_date' not in context.user_data:
         context.user_data['first_date'] = str_date
+
     elif 'second_date' not in context.user_data:
         context.user_data['second_date'] = str_date
 
         first_date = context.user_data['first_date']
         last_date = context.user_data['second_date']
-
-        arms = ['r', 'l']
+#получаю два одинаковых графика почему то
         for arm in arms:
             arm_data = read_and_prepare_json_pressure_file_for_period(arm, first_date, last_date)
-            create_graph(arm_data)
+            print(arm_data)
+            
+            if arm_data != "Can't find pressure data":
+                graph = create_graph(arm_data)
 
-        #right_arm_data = read_and_prepare_json_pressure_file_for_period('r', first_date, last_date)
-        #left_arm_data = read_and_prepare_json_pressure_file_for_period('l', first_date, last_date)
-        #create_graph(right_arm_data)
-        #create_graph(left_arm_data)
-
-        context.bot.send_document(
-            chat_id=update.callback_query.message.chat_id, document=open('r_graph.png', 'rb')
-            )
-        context.bot.send_document(
-            chat_id=update.callback_query.message.chat_id, document=open('l_graph.png', 'rb')
-            )
+                context.bot.send_document(
+                    chat_id=update.callback_query.message.chat_id, document=open(graph, 'rb')
+                )
+            
+            else:
+                text = "Can't find pressure data for an arm"
+                context.bot.send_message(
+                    chat_id=update.callback_query.message.chat_id, text=text
+                )
 
         if 'first_date' in context.user_data: del context.user_data['first_date']
         if 'second_date' in context.user_data: del context.user_data['second_date']
@@ -198,7 +204,25 @@ def cancel(update, context):
     return START
 
 
-def main():
+def send_graph_to_user():
+    """
+    need to be done
+    """
+    arms = ["r", "l"]
+    graphs = ['r_graph.png', 'l_graph.png']
+
+    for arm in arms:
+            arm_data = read_and_prepare_json_pressure_file_for_period(arm, first_date, last_date)
+            create_graph(arm_data)
+
+    for graph in graphs:
+        context.bot.send_document(
+            chat_id=update.callback_query.message.chat_id, document=open(graph, 'rb')
+        )
+
+
+
+def main():    
     updater = Updater(token=TOKEN, request_kwargs=PROXY, use_context=True)
     dispatcher = updater.dispatcher
 

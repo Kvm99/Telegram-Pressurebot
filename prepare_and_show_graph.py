@@ -133,23 +133,31 @@ def read_and_prepare_json_pressure_file_for_period(arm, first_date, last_date):
     end = datetime.datetime.strptime(last_date, "%d.%m.%Y")
     end_date = end + datetime.timedelta(days=1)
 
-    date_generated = [start + datetime.timedelta(days=x) for x in range(0, (end_date-start).days)]
+    date_generated = [(start + datetime.timedelta(days=x)).strftime("%d.%m.%Y") for x in range(0, (end_date-start).days)]
 
     if arm_dict is not None:
 
         for date in date_generated:
-            if date in arm_dict:
-                each_date = date.strftime("%d.%m.%Y")
 
-                date_list.append(each_date)
-                if len(arm_dict[each_date]) > 1:
+            if len(date_generated) == 1:
+
+                if date not in arm_dict:
+                    return "Can't find pressure data"
+                else:
+                    return read_and_prepare_json_pressure_file_per_day(arm, date)
+
+            elif date in arm_dict:
+                date_list.append(date)
+
+                if len(arm_dict[date]) > 1:
                     biggest_pressure = find_biggest_pressure_value_per_day(
-                        arm_dict[each_date]
+                        arm_dict[date]
                         )
                     systolic.append(biggest_pressure[0])
                     diastolic.append(biggest_pressure[1])
+
                 else:
-                    for time, value in arm_dict[each_date].items():
+                    for time, value in arm_dict[date].items():
                         systolic.append(value[0])
                         diastolic.append(value[1])
             else:
@@ -158,9 +166,7 @@ def read_and_prepare_json_pressure_file_for_period(arm, first_date, last_date):
         if len(date_list) == 1:
             return read_and_prepare_json_pressure_file_per_day(arm, date_list[0])
 
-
         return systolic, diastolic, date_list, arm            
-
         
     elif arm_dict is None:
         return "Please add arm data"
@@ -247,9 +253,14 @@ def create_graph(arm_list):
     directory = os.path.dirname(os.path.abspath(__file__))
     if arm_list[3] == "r":
         graph_name = os.path.join(directory, 'r_graph.png')
+        savefig(graph_name)
+        return 'r_graph.png'
+
     if arm_list[3] == "l":
         graph_name = os.path.join(directory, 'l_graph.png')
-    savefig(graph_name)
+        savefig(graph_name)
+        return 'l_graph.png'
+
     return "Successfully completed"
 
 
