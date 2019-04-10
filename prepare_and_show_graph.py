@@ -138,20 +138,29 @@ def read_and_prepare_json_pressure_file_for_period(arm, first_date, last_date):
     if arm_dict is not None:
 
         for date in date_generated:
-            each_date = date.strftime("%d.%m.%Y")
+            if date in arm_dict:
+                each_date = date.strftime("%d.%m.%Y")
 
-            date_list.append(each_date)
-            if len(arm_dict[each_date]) > 1:
-                biggest_pressure = find_biggest_pressure_value_per_day(
-                    arm_dict[each_date]
-                    )
-                systolic.append(biggest_pressure[0])
-                diastolic.append(biggest_pressure[1])
+                date_list.append(each_date)
+                if len(arm_dict[each_date]) > 1:
+                    biggest_pressure = find_biggest_pressure_value_per_day(
+                        arm_dict[each_date]
+                        )
+                    systolic.append(biggest_pressure[0])
+                    diastolic.append(biggest_pressure[1])
+                else:
+                    for time, value in arm_dict[each_date].items():
+                        systolic.append(value[0])
+                        diastolic.append(value[1])
             else:
-                for time, value in arm_dict[each_date].items():
-                    systolic.append(value[0])
-                    diastolic.append(value[1])
-        return systolic, diastolic, date_list, arm
+                continue
+
+        if len(date_list) == 1:
+            return read_and_prepare_json_pressure_file_per_day(arm, date_list[0])
+
+
+        return systolic, diastolic, date_list, arm            
+
         
     elif arm_dict is None:
         return "Please add arm data"

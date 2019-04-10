@@ -20,6 +20,7 @@ from prepare_and_show_graph import (
     prepare_data_to_json_writer,
     write_data_to_json_file,
     read_and_prepare_json_pressure_file,
+    read_and_prepare_json_pressure_file_for_period,
     read_and_prepare_json_pressure_file_per_day,
     create_graph,
 )
@@ -27,13 +28,13 @@ from prepare_and_show_graph import (
 logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO,
-        filename="pressure_bot.log"
+        filename="bot.log"
     )
 
-ARM, PRESSURE, GRAPH, START = range(4)
+ARM, PRESSURE, GRAPH, GRAPH_FOR_PERIOD, START = range(5)
 
 arm_buttons = [["Right", "Left"]]
-period_buttons = [["All the time graph", "Today graph", "Don't need a graph"]]
+period_buttons = [["All the time graph", "Graph for period", "Today graph", "Don't need a graph"]]
 
 arms_markup = ReplyKeyboardMarkup(arm_buttons, one_time_keyboard=True)
 period_markup = ReplyKeyboardMarkup(period_buttons, one_time_keyboard=True)
@@ -119,6 +120,14 @@ def graph(update, context):
             )
         return START
 
+    elif user_choice == "Graph for period":
+        context.bot.send_message(
+        chat_id=update.message.chat_id,
+        text="Please select a date: ",
+        reply_markup=telegramcalendar.create_calendar()
+        )
+        return GRAPH_FOR_PERIOD
+        
     elif user_choice == 'Today graph':
         date = datetime.datetime.now().date()
         str_date = date.strftime("%d.%m.%Y")
@@ -137,22 +146,47 @@ def graph(update, context):
         return START
 
 
-def calendar_handler(update, context):
-     context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text="Please select a date: ",
-        reply_markup=telegramcalendar.create_calendar()
-        )
+def inline_handler(update, context):
 
+    selected, date = telegramcalendar.process_calendar_selection(update, context)
+    str_date = date.strftime("%d.%m.%Y")
 
-def inline_handler(bot,update):
-    selected,date = telegramcalendar.process_calendar_selection(bot, update)
     if selected:
         context.bot.send_message(
-            chat_id=update.message.chat_id,
-            text="You selected %s" % (date.strftime("%d.%m.%Y")),
-            reply_markup=ReplyKeyboardRemove()
+            chat_id=update.callback_query.message.chat_id,
+            text="You selected %s" %str_date,
+            reply_markup=markup_remove
             )
+
+    if 'first_date' not in context.user_data:
+        context.user_data['first_date'] = str_date
+    elif 'second_date' not in context.user_data:
+        context.user_data['second_date'] = str_date
+
+        first_date = context.user_data['first_date']
+        last_date = context.user_data['second_date']
+
+        arms = ['r', 'l']
+        for arm in arms:
+            arm_data = read_and_prepare_json_pressure_file_for_period(arm, first_date, last_date)
+            create_graph(arm_data)
+
+        #right_arm_data = read_and_prepare_json_pressure_file_for_period('r', first_date, last_date)
+        #left_arm_data = read_and_prepare_json_pressure_file_for_period('l', first_date, last_date)
+        #create_graph(right_arm_data)
+        #create_graph(left_arm_data)
+
+        context.bot.send_document(
+            chat_id=update.callback_query.message.chat_id, document=open('r_graph.png', 'rb')
+            )
+        context.bot.send_document(
+            chat_id=update.callback_query.message.chat_id, document=open('l_graph.png', 'rb')
+            )
+
+        if 'first_date' in context.user_data: del context.user_data['first_date']
+        if 'second_date' in context.user_data: del context.user_data['second_date']
+
+        return START
 
 
 def cancel(update, context):
@@ -168,9 +202,6 @@ def main():
     updater = Updater(token=TOKEN, request_kwargs=PROXY, use_context=True)
     dispatcher = updater.dispatcher
 
-    dispatcher.add_handler(CommandHandler("calendar",calendar_handler))
-    dispatcher.add_handler(CallbackQueryHandler(inline_handler))
-
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
 
@@ -180,6 +211,8 @@ def main():
             PRESSURE: [MessageHandler(Filters.text, pressure)],
 
             GRAPH: [MessageHandler(Filters.text, graph)],
+
+            GRAPH_FOR_PERIOD: [CallbackQueryHandler(inline_handler)],
 
             START: [CommandHandler('start', start)],
         },
