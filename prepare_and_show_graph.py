@@ -22,7 +22,6 @@ def arm_corrector(user_input_arm):
         return "incorrect arm input"
 
 
-
 def take_value_from_user_json_version(value, date_time):
     """
     take arm and pressure from user
@@ -41,7 +40,8 @@ def prepare_data_to_json_writer(user_data, arm):
     """
     Take  arm, str_date, str_time, systolic_pressure, diastolic_pressure
     and add to json file.
-    result like: {"r": {"01.01.2000": {"10.00": [140,70]}}, "Left": {"02.02.2002": {"11.00": [140, 60]}}
+    result like: {"r": {"01.01.2000": {"10.00": [140,70]}},
+    "l": {"02.02.2002": {"11.00": [140, 60]}}
     """
     arm = arm.lower()
     pressure_dict = read_json_pressure_file()
@@ -65,12 +65,12 @@ def read_json_pressure_file():
     if doesn't exists, create with data {"Right": None, "Left": None}
     """
     try:
-        directory = os.path.dirname(os.path.abspath(__file__))  # путь к текущему файлу
-        json_file = os.path.join(directory, 'pressure.json')  # добавить к пути к файлу путь до json файла
+        directory = os.path.dirname(os.path.abspath(__file__))
+        json_file = os.path.join(directory, 'pressure.json')
 
         if os.path.exists(json_file):
             with open(json_file, "r", encoding="utf-8") as read_file:
-                return json.load(read_file)  # получаем существующие данные из файла
+                return json.load(read_file)
     except json.decoder.JSONDecodeError:
         pass
 
@@ -89,42 +89,12 @@ def write_data_to_json_file(pressure_dict):
         json.dump(pressure_dict, write_file)
 
 
-def read_and_prepare_json_pressure_file(arm):
-    """
-    take data like {"Right": {"01.01.2000": {"10.00": [140,70]}}, "Left": {"02.02.2002": {"11.00": [140, 60]}}
-    read json file, make two lists:
-    [systolic],[diastolic],[date_list] to graph
-    """
-    pressure_dict = read_json_pressure_file()
-    arm_dict = pressure_dict[arm]
-
-    if arm_dict is None:
-        return "Please add arm data"
-
-    elif len(arm_dict) == 1:  # if it's only one day data
-        for date in arm_dict.keys():
-            day = date
-        return read_and_prepare_json_pressure_file_per_day(arm, day)
-
-    elif arm_dict is not None:
-        systolic, diastolic, date_list = [], [], []
-
-        for date in arm_dict:
-            date_list.append(date)
-            if len(arm_dict[date]) > 1:
-                biggest_pressure = find_biggest_pressure_value_per_day(
-                    arm_dict[date]
-                    )
-                systolic.append(biggest_pressure[0])
-                diastolic.append(biggest_pressure[1])
-            else:
-                for time, value in arm_dict[date].items():
-                    systolic.append(value[0])
-                    diastolic.append(value[1])
-        return systolic, diastolic, date_list, arm
-
-
 def read_and_prepare_json_pressure_file_for_period(arm, first_date, last_date):
+    """
+    find interval between 2 dates,
+    read json file, make two lists for such dates:
+    [systolic],[diastolic],[date_list] to graph.
+    """
     pressure_dict = read_json_pressure_file()
     arm_dict = pressure_dict[arm]
     systolic, diastolic, date_list = [], [], []
@@ -133,7 +103,10 @@ def read_and_prepare_json_pressure_file_for_period(arm, first_date, last_date):
     end = datetime.datetime.strptime(last_date, "%d.%m.%Y")
     end_date = end + datetime.timedelta(days=1)
 
-    date_generated = [(start + datetime.timedelta(days=x)).strftime("%d.%m.%Y") for x in range(0, (end_date-start).days)]
+    date_generated = [
+        (start + datetime.timedelta(days=x)).strftime("%d.%m.%Y")
+        for x in range(0, (end_date-start).days)
+        ]
 
     if arm_dict is not None:
 
@@ -166,8 +139,8 @@ def read_and_prepare_json_pressure_file_for_period(arm, first_date, last_date):
         if len(date_list) == 1:
             return read_and_prepare_json_pressure_file_per_day(arm, date_list[0])
 
-        return systolic, diastolic, date_list, arm            
-        
+        return systolic, diastolic, date_list, arm
+
     elif arm_dict is None:
         return "Please add arm data"
 
