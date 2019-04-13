@@ -39,6 +39,9 @@ markup_remove = ReplyKeyboardRemove(selective=False)
 
 
 def start(update, context):
+    """
+    greet user, ask arm for a new pressure data
+    """
     user_text = update.message
     text = (
         '''Hi, %s, I'm a pressure - keeper - bot.
@@ -55,6 +58,9 @@ def start(update, context):
 
 
 def arm(update, context):
+    """
+    ask user pressure data, close arm buttons
+    """
     user_input_arm = update.message.text
     context.user_data['arm'] = user_input_arm
     text = (
@@ -68,6 +74,13 @@ def arm(update, context):
 
 
 def pressure(update, context):
+    """
+    take arm and pressure from saved user data
+    prepare pressure like ['180', '90']
+    take currnet date and time and make them str-objects
+    prepare and write new data (systolic, diastolic, date, time, arm) to json.
+    Return calendar
+    """
     user_input_arm = context.user_data['arm']
     arm = arm_corrector(user_input_arm)
 
@@ -96,6 +109,12 @@ def pressure(update, context):
 
 
 def inline_handler(update, context):
+    """
+    Take two dates from user input in calendar.
+    send them to user,
+    return left arm and right arm graphs for the choosen period
+
+    """
     selected, date = telegramcalendar.process_calendar_selection(update, context)
     str_date = date.strftime("%d.%m.%Y")
 
@@ -147,6 +166,9 @@ def inline_handler(update, context):
 
 
 def cancel(update, context):
+    """
+    close the conversation
+    """
     text = (
         "Bye! I hope we can talk again some day."
     )

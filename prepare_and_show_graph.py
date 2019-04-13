@@ -7,6 +7,10 @@ import re
 
 
 def get_date_and_time_now():
+    """
+    receive current date and time (return datetime objects)
+    """
+
     date = datetime.datetime.now().date()
     time = datetime.datetime.now().time()
 
@@ -14,6 +18,10 @@ def get_date_and_time_now():
 
 
 def arm_corrector(user_input_arm):
+    """
+    receive user input data (right or left arm)
+    and convert them into needed json type ('r' or 'l')
+    """
     if user_input_arm == "Right":
         return "r"
     if user_input_arm == "Left":
@@ -25,7 +33,7 @@ def arm_corrector(user_input_arm):
 def take_value_from_user_json_version(value, date_time):
     """
     take arm and pressure from user
-    find date and time now
+    make date and time str-objects
     return arm, date, time, systolic, diastolic
     """
     str_date = date_time[0].strftime("%d.%m.%Y")
@@ -93,7 +101,7 @@ def read_and_prepare_json_pressure_file_for_period(arm, first_date, last_date):
     """
     find interval between 2 dates,
     read json file, make two lists for such dates:
-    [systolic],[diastolic],[date_list] to graph.
+    [systolic],[diastolic],[date_list], arm to graph.
     """
     pressure_dict = read_json_pressure_file()
     arm_dict = pressure_dict[arm]
@@ -147,8 +155,8 @@ def read_and_prepare_json_pressure_file_for_period(arm, first_date, last_date):
 
 def read_and_prepare_json_pressure_file_per_day(arm, day):
     """
-    take data from json file and return data to day's graph
-    like [systolic][diastolic][time_list]
+    take data from json file and return day's data to graph.
+    like [systolic][diastolic][time_list], arm
     """
     pressure_dict = read_json_pressure_file()
     arm_dict = pressure_dict[arm]
@@ -170,7 +178,7 @@ def read_and_prepare_json_pressure_file_per_day(arm, day):
 
 def find_biggest_pressure_value_per_day(day_dict):
     """
-    take day values,
+    take day's values,
     find the biggest systolic value
     return [biggest_systolic, diastolic, date, time]
     """
@@ -197,7 +205,8 @@ def find_biggest_pressure_value_per_day(day_dict):
 
 def create_graph(arm_list):
     """
-    take [systolic_pressure], [diastolic_pressure], [dates or time]
+    take [systolic_pressure], [diastolic_pressure], [dates or time], arm
+    makes graph and save it like r_graph.png or l_graph.png
     """
     plot.close("all")
     figsize = (8, 4)
@@ -238,6 +247,10 @@ def create_graph(arm_list):
 
 
 def main():
+    """
+    bash verion of the application
+    """
+
     arm = input("If you use left arm, print 'l', if right - 'r': ")
 
     if arm.lower() != "r" and arm.lower() != "l":
