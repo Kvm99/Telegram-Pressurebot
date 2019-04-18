@@ -11,6 +11,9 @@ import logging
 import datetime
 import psycopg2
 import re
+import os
+import matplotlib.pyplot as plot
+from matplotlib.pyplot import close, savefig
 
 import telegramcalendar
 from db_settings import config
