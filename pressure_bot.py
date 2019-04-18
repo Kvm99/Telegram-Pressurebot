@@ -11,20 +11,11 @@ import logging
 import datetime
 import psycopg2
 import re
-from collections import defaultdict
 
 import telegramcalendar
 from db_settings import config
 from bot_settings import TOKEN, PROXY
-from prepare_and_show_graph import (
-    arm_corrector,
-    get_date_and_time_now,
-    take_value_from_user_json_version,
-    prepare_data_to_json_writer,
-    write_data_to_json_file,
-    read_and_prepare_json_pressure_file_for_period,
-    create_graph,
-)
+
 
 logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -35,16 +26,14 @@ logging.basicConfig(
 ARM, PRESSURE, GRAPH_FOR_PERIOD, START = range(4)
 
 arm_buttons = [["Right", "Left"]]
-period_buttons = [["All the time graph", "Graph for period", "Today graph", "Don't need a graph"]]
-
 arms_markup = ReplyKeyboardMarkup(arm_buttons, one_time_keyboard=True)
-period_markup = ReplyKeyboardMarkup(period_buttons, one_time_keyboard=True)
 markup_remove = ReplyKeyboardRemove(selective=False)
 
 
 def start(update, context):
     """
-    greet user, ask arm for a new pressure data
+    greet user, ask name of the arm for a new pressure data,
+    save it into context
     """
     user_text = update.message
     text = (
@@ -65,7 +54,9 @@ def start(update, context):
 
 def arm(update, context):
     """
-    ask user pressure data, close arm buttons
+    ask user pressure data,
+    save arm-input into context,
+    close arm buttons
     """
     user_input_arm = update.message.text
     context.user_data['arm'] = user_input_arm
@@ -81,10 +72,11 @@ def arm(update, context):
 
 def pressure(update, context):
     """
-    take arm and pressure from saved user data
-    prepare pressure like ['180', '90']
-    take currnet date and time and make them str-objects
-    prepare and write new data (systolic, diastolic, date, time, arm) to json.
+    take arm and pressure
+    prepare pressure data like ['180', '90']
+    take current datetime
+    prepare and write new data to postgreSQL:
+    username, systolic, diastolic, timestamp, date, arm
     Return calendar
     """
     user_input_arm = context.user_data['arm']
@@ -97,7 +89,9 @@ def pressure(update, context):
     timestamp = datetime.datetime.now()
     username = context.user_data['user_name']
 
-    save_pressure_to_postgresql(username, systolic, diastolic, timestamp, date, arm)
+    save_pressure_to_postgresql(
+        username, systolic, diastolic, timestamp, date, arm
+        )
 
     text = (
         '''I see.
@@ -118,10 +112,14 @@ def inline_handler(update, context):
     """
     Take two dates from user input in calendar.
     send them to user,
-    return left arm and right arm graphs for the choosen period
+    take current-user data from postgreSQL
+    prepare data to graph
+    return left arm and right arm graph.png for the choosen period
 
     """
-    selected, date = telegramcalendar.process_calendar_selection(update, context)
+    selected, date = telegramcalendar.process_calendar_selection(
+        update, context
+        )
     str_date = date.strftime("%d.%m.%Y")
 
     arms = ["r", "l"]
@@ -143,19 +141,16 @@ def inline_handler(update, context):
         last_date = context.user_data['second_date']
         user = context.user_data['user_name']
 
-
-    pressure_list = select_data_from_postgresql(first_date, last_date, user) 
+    pressure_list = select_data_from_postgresql(first_date, last_date, user)
 
     for arm in arms:
         arm_data = prepare_data_from_potgresql_to_graph(pressure_list, arm)
-        print("arm_data", arm_data, "\n")
         graph = create_graph(arm_data)
 
         context.bot.send_document(
             chat_id=update.callback_query.message.chat_id,
             document=open(graph, 'rb')
         )
-
 
     if 'first_date' in context.user_data:
         del context.user_data['first_date']
@@ -168,7 +163,8 @@ def inline_handler(update, context):
 
 def select_data_from_postgresql(first_date, last_date, user):
     """
-    select data for the user and time period
+    find dates for the period
+    select data for the user and dates
     """
     pressure_list = []
     date_generated = find_dates_in_period(first_date, last_date)
@@ -178,8 +174,9 @@ def select_data_from_postgresql(first_date, last_date, user):
     for date in date_generated:
         date_format = datetime.datetime.strptime(date, "%Y-%m-%d").date()
 
-
-        postgreSQL_select_query = """SELECT * FROM pressure WHERE username = %s and date = %s ;"""
+        postgreSQL_select_query = """
+            SELECT * FROM pressure WHERE username = %s and date = %s ;
+            """
         username = [user, date_format]
         cursor.execute(postgreSQL_select_query, username)
 
@@ -194,13 +191,13 @@ def select_data_from_postgresql(first_date, last_date, user):
 
 def prepare_data_from_potgresql_to_graph(pressure_list, arm):
     """
-    find interval between 2 dates,
-    read json file, make two lists for such dates:
-    [systolic],[diastolic],[date_list], arm to graph.
-
-    {"r": {"01.01.2000": {"10.00": [140,70]}},
+    from pressure_list make list for "l" or "r" arm,
+    if it's only one-day data, make graph with time-indexes,
+    if there are a lot of days and pressure-records,
+    find the biggest value per each day.
+    return: [systolic],[diastolic],[date_list], arm
     """
-    pressure_list_for_arm = []   
+    pressure_list_for_arm = []
 
     for date in pressure_list:
         day_arm_list = []
@@ -223,7 +220,6 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
             diastolic_list.append(diastolic)
 
         return systolic_list, diastolic_list, date_list, arm
-
 
     for day in pressure_list_for_arm:
         date = datetime.datetime.strftime(day[0][5], "%Y-%m-%d")
@@ -262,7 +258,8 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
 
 def cancel(update, context):
     """
-    close the conversation
+    close the conversation,
+    return START possition of the conversation handler
     """
     text = (
         "Bye! I hope we can talk again some day."
@@ -272,10 +269,11 @@ def cancel(update, context):
     return START
 
 
-
-def save_pressure_to_postgresql(username, systolic, diastolic, timestamp, date, arm):
+def save_pressure_to_postgresql(
+        username, systolic, diastolic, timestamp, date, arm
+        ):
     """
-    save username(unique), arm, date, datetime, systolic, diastolic pressure
+    save username(unique), systolic, diastolic, timestamp, date, arm
     """
     connection = config()
     cursor = connection.cursor()
@@ -289,7 +287,9 @@ def save_pressure_to_postgresql(username, systolic, diastolic, timestamp, date, 
 
     finally:
         postgres_insert_pressure = """
-        INSERT INTO pressure (username, systolic, diastolic, timestamp, date, arm)
+        INSERT INTO pressure (
+            username, systolic, diastolic, timestamp, date, arm
+            )
         VALUES (%s, %s, %s, %s, %s, %s)
         """
         records_to_pressure = (
@@ -308,14 +308,18 @@ def save_pressure_to_postgresql(username, systolic, diastolic, timestamp, date, 
 
 
 def find_dates_in_period(first_date, last_date):
+    """
+    find all dates between first date and last date(included the last)
+    """
     start_date = datetime.datetime.strptime(first_date, "%d.%m.%Y")
     end_date = datetime.datetime.strptime(last_date, "%d.%m.%Y")
-    end= end_date + datetime.timedelta(days=1)
+    end = end_date + datetime.timedelta(days=1)
 
     date_generated = [
         (start_date + datetime.timedelta(days=x)).strftime("%Y-%m-%d")
         for x in range(0, (end-start_date).days)
         ]
+
     return date_generated
 
 
@@ -341,8 +345,65 @@ def select_data_from_postgresql_1(first_date, last_date, user):
             date_format = datetime.datetime.strptime(date, "%Y-%m-%d").date()
 
             if date_format == line[5]:
-               pressure_list.append(line)
-    return pressure_list  
+                pressure_list.append(line)
+
+    return pressure_list
+
+
+def arm_corrector(user_input_arm):
+    """
+    receive user input data (right or left arm)
+    and convert them into needed type ('r' or 'l')
+    """
+    if user_input_arm == "Right":
+        return "r"
+    if user_input_arm == "Left":
+        return "l"
+    if user_input_arm != "Left" and user_input_arm != "Right":
+        return "incorrect arm input"
+
+
+def create_graph(arm_list):
+    """
+    take [systolic_pressure], [diastolic_pressure], [dates or time], arm
+    and makes graph, save it like r_graph.png or l_graph.png
+    """
+    plot.close("all")
+    figsize = (8, 4)
+    fig = plot.figure(figsize=figsize, facecolor='pink', frameon=True)
+
+    ax = fig.add_subplot(111)  # создаем систему координат
+
+    if arm_list[3] == "r":
+        plot.title('Right arm')  # название графика
+    elif arm_list[3] == "l":
+        plot.title('Left arm')
+    else:
+        return "incorrect arm name"
+
+    list_systolic_pressure = list(map(int, arm_list[0]))  # данные из стр к int
+    list_diastolic_pressure = list(map(int, arm_list[1]))
+
+    list_dates = arm_list[2]  # даты из файла для оси x (даты)
+    ax.set_xticklabels(list_dates, rotation=10)
+    ax.plot(list_dates, list_systolic_pressure)  # строим график
+    ax.plot(list_dates, list_diastolic_pressure)
+
+    for ax in fig.axes:  # сетка на графике
+        ax.grid(True)
+
+    directory = os.path.dirname(os.path.abspath(__file__))
+    if arm_list[3] == "r":
+        graph_name = os.path.join(directory, 'r_graph.png')
+        savefig(graph_name)
+        return 'r_graph.png'
+
+    if arm_list[3] == "l":
+        graph_name = os.path.join(directory, 'l_graph.png')
+        savefig(graph_name)
+        return 'l_graph.png'
+
+    return "Successfully completed"
 
 
 def main():
