@@ -1,3 +1,6 @@
+# A library which was needed in json version telegram bot.
+
+
 import matplotlib.pyplot as plot
 from matplotlib.pyplot import close, savefig
 import json
