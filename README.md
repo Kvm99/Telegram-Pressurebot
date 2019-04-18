@@ -13,4 +13,4 @@ python-telegram-bot==12.0.0b1, psycopg2==2.8.1, matplotlib==3.0.3
 
 ## DEMO
 -------------
-![]('Гифка с Gifius.ru.gif')
+![](Pressure_bot.gif)
