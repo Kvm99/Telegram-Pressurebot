@@ -26,7 +26,7 @@ logging.basicConfig(
         filename="bot.log"
     )
 
-ARM, PRESSURE, GRAPH_FOR_PERIOD, START = range(4)
+ARM, PRESSURE, GRAPH_FOR_PERIOD, START, REMINDER = range(5)
 
 arm_buttons = [["Right", "Left"]]
 arms_markup = ReplyKeyboardMarkup(arm_buttons, one_time_keyboard=True)
@@ -83,7 +83,7 @@ def pressure(update, context):
     Return calendar
     """
     user_input_arm = context.user_data['arm']
-    arm = arm_corrector(user_input_arm)
+    arm = arm_corrector(user_input_arm) # TODO change format of saving arm-input
 
     user_input_pressure = update.message.text
     list_pressure = re.split(r'[\^\,\.:;\\/]', user_input_pressure)
@@ -125,8 +125,6 @@ def inline_handler(update, context):
         )
     str_date = date.strftime("%d.%m.%Y")
 
-    arms = ["r", "l"]
-
     if selected:
         context.bot.send_message(
             chat_id=update.callback_query.message.chat_id,
@@ -146,6 +144,8 @@ def inline_handler(update, context):
 
     pressure_list = select_data_from_postgresql(first_date, last_date, user)
 
+    arms = ["r", "l"]
+
     for arm in arms:
         arm_data = prepare_data_from_potgresql_to_graph(pressure_list, arm)
         graph = create_graph(arm_data)
@@ -161,7 +161,7 @@ def inline_handler(update, context):
     if 'second_date' in context.user_data:
         del context.user_data['second_date']
 
-    return START
+    return REMINDER
 
 
 def select_data_from_postgresql(first_date, last_date, user):
@@ -214,7 +214,7 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
 
     systolic_list, diastolic_list, date_list = [], [], []
 
-    if len(pressure_list_for_arm) == 1:
+    if len(pressure_list_for_arm) == 1: # TODO change style from list[] to naming
         for line in pressure_list_for_arm[0]:
             systolic, diastolic = line[2], line[3]
             time = datetime.datetime.strftime(line[4], "%H:%M")
@@ -225,7 +225,7 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
         return systolic_list, diastolic_list, date_list, arm
 
     for day in pressure_list_for_arm:
-        date = datetime.datetime.strftime(day[0][5], "%Y-%m-%d")
+        date = datetime.datetime.strftime(day[0][5], "%Y-%m-%d") # TODO fix IndexError: list index out of range
 
         if len(day) == 1:
             systolic, diastolic = day[0][2], day[0][3]
@@ -302,7 +302,7 @@ def save_pressure_to_postgresql(
             timestamp,
             date,
             arm
-            )
+            ) # TODO change timestamp and data in the table
 
         cursor.execute(postgres_insert_pressure, records_to_pressure)
         cursor.close()
@@ -409,6 +409,46 @@ def create_graph(arm_list):
     return "Successfully completed"
 
 
+def show_clock(uodate, context):
+    pass
+
+
+def take_time_for_timer(update, context):
+    pass
+
+
+def set_timer(update, context):
+    pass
+
+
+def alarm(context):
+    """Send the alarm message."""
+    job = context.job
+    context.bot.send_message(job.context, text="It's time to measure arterial pressure")
+
+
+def set_timer(update, context):
+    """Add a job to the queue."""
+    chat_id = update.message.chat_id
+    try:
+        # args[0] should contain the time for the timer in seconds
+        due = int(context.args[0])
+        print("due",due)
+        if due < 0:
+            update.message.reply_text('Sorry we can not go back to future!')
+            return
+
+        # Add job to queue
+        job = context.job_queue.run_once(alarm, due, context=chat_id)
+        context.chat_data['job'] = job
+
+        update.message.reply_text('Timer successfully set!')
+
+    except (IndexError, ValueError):
+        update.message.reply_text('Usage: /set <seconds>')
+
+
+
 def main():
     updater = Updater(token=TOKEN, request_kwargs=PROXY, use_context=True)
     dispatcher = updater.dispatcher
@@ -424,10 +464,17 @@ def main():
             GRAPH_FOR_PERIOD: [CallbackQueryHandler(inline_handler)],
 
             START: [CommandHandler('start', start)],
+
+            REMINDER: [CommandHandler("set", set_timer,
+                                  pass_args=True,
+                                  pass_job_queue=True,
+                                pass_chat_data=True)],
+
         },
 
         fallbacks=[CommandHandler('cancel', cancel)]
     )
+
 
     dispatcher.add_handler(conv_handler)
 
