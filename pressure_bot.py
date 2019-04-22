@@ -9,14 +9,23 @@ from telegram.ext import (
     )
 import logging
 import datetime
-import psycopg2
+
 import re
 import os
 import matplotlib.pyplot as plot
 from matplotlib.pyplot import close, savefig
 
 import telegramcalendar
-from db_settings import config
+from functional_bot import (
+    select_data_from_postgresql,
+    prepare_data_from_potgresql_to_graph,
+    save_pressure_to_postgresql,
+    find_dates_in_period,
+    select_data_from_postgresql,
+    arm_corrector,
+    create_graph,
+    )
+
 from bot_settings import TOKEN, PROXY
 
 
@@ -26,7 +35,7 @@ logging.basicConfig(
         filename="bot.log"
     )
 
-ARM, PRESSURE, GRAPH_FOR_PERIOD, START, REMINDER = range(5)
+ARM, PRESSURE, GRAPH_FOR_PERIOD, START, REMINDER, SET_TIMER = range(6)
 
 arm_buttons = [["Right", "Left"]]
 arms_markup = ReplyKeyboardMarkup(arm_buttons, one_time_keyboard=True)
@@ -41,8 +50,11 @@ def start(update, context):
     user_text = update.message
     text = (
         '''Hi, %s, I'm a pressure - keeper - bot.
-        Please enter on which arm your measured arterial pressure:
-        Send /cancel to stop talking to me.'''
+
+        Which arm have you used?
+
+        send /cancel to stop talking to me,
+        or /set to set reminder'''
         % user_text['chat']['first_name']
         )
     user_name = user_text['chat']['username']
@@ -138,22 +150,37 @@ def inline_handler(update, context):
     elif 'second_date' not in context.user_data:
         context.user_data['second_date'] = str_date
 
-        first_date = context.user_data['first_date']
-        last_date = context.user_data['second_date']
-        user = context.user_data['user_name']
+    make_graph(update, context)
+
+    return REMINDER
+
+
+def make_graph(update, context):
+    first_date = context.user_data['first_date']
+    last_date = context.user_data['second_date']
+    user = context.user_data['user_name']
 
     pressure_list = select_data_from_postgresql(first_date, last_date, user)
 
     arms = ["r", "l"]
 
     for arm in arms:
-        arm_data = prepare_data_from_potgresql_to_graph(pressure_list, arm)
-        graph = create_graph(arm_data)
+        try:
+            arm_data = prepare_data_from_potgresql_to_graph(pressure_list, arm)
+        
+            graph = create_graph(arm_data)
+            context.bot.send_document(
+                chat_id=update.callback_query.message.chat_id,
+                document=open(graph, 'rb')
+            )
 
-        context.bot.send_document(
-            chat_id=update.callback_query.message.chat_id,
-            document=open(graph, 'rb')
-        )
+        except ValueError:
+            context.bot.send_message(
+                chat_id=update.callback_query.message.chat_id,
+                text="There aren't any arm data per date"
+                )
+            return START
+
 
     if 'first_date' in context.user_data:
         del context.user_data['first_date']
@@ -161,102 +188,47 @@ def inline_handler(update, context):
     if 'second_date' in context.user_data:
         del context.user_data['second_date']
 
-    return REMINDER
 
-
-def select_data_from_postgresql(first_date, last_date, user):
+def take_time_for_timer(update, context):
     """
-    find dates for the period
-    select data for the user and dates
+    take time from user and save it into context
+    if it exists, add new value
     """
-    pressure_list = []
-    date_generated = find_dates_in_period(first_date, last_date)
-    connection = config()
-    cursor = connection.cursor()
-
-    for date in date_generated:
-        date_format = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-
-        postgreSQL_select_query = """
-            SELECT * FROM pressure WHERE username = %s and date = %s ;
-            """
-        username = [user, date_format]
-        cursor.execute(postgreSQL_select_query, username)
-
-        pressure_data = cursor.fetchall()
-        pressure_list.append(pressure_data)
-
-    cursor.close()
-    connection.close()
-
-    return pressure_list
+    text = "Enter time to reminder, like 21:14"
+    context.bot.send_message(chat_id=update.message.chat_id, text=text, reply_markup=markup_remove)
+    
+    return SET_TIMER
 
 
-def prepare_data_from_potgresql_to_graph(pressure_list, arm):
+def alarm(context):
     """
-    from pressure_list make list for "l" or "r" arm,
-    if it's only one-day data, make graph with time-indexes,
-    if there are a lot of days and pressure-records,
-    find the biggest value per each day.
-    return: [systolic],[diastolic],[date_list], arm
+    Send the alarm message
     """
-    pressure_list_for_arm = []
+    job = context.job
+    context.bot.send_message(job.context, text="It's time to measure arterial pressure")
 
-    for date in pressure_list:
-        day_arm_list = []
 
-        for line in date:
-            if line[-1] == arm:
-                day_arm_list.append(line)
-            else:
-                continue
-        pressure_list_for_arm.append(day_arm_list)
+def set_timer(update, context):
+    """
+    take alarm value from context
+    find time now
+    find differense between time now and alarm time
+    and set timer.
+    If it's more than one value, take differences between each other
+    and set timers one by one
+    """
+    alarm_time = update.message.text
+    context.user_data['alarm_time'] = datetime.datetime.strptime(alarm_time, "%H:%M").time() 
 
-    systolic_list, diastolic_list, date_list = [], [], []
+    alarm_time = context.user_data['alarm_time']
+    print(alarm_time)
+    job = context.job_queue.run_daily(
+        alarm, alarm_time, context=update.message.chat_id
+        )
+    context.chat_data['job'] = job
+    update.message.reply_text('Timer successfully set!')
 
-    if len(pressure_list_for_arm) == 1: # TODO change style from list[] to naming
-        for line in pressure_list_for_arm[0]:
-            systolic, diastolic = line[2], line[3]
-            time = datetime.datetime.strftime(line[4], "%H:%M")
-            date_list.append(time)
-            systolic_list.append(systolic)
-            diastolic_list.append(diastolic)
-
-        return systolic_list, diastolic_list, date_list, arm
-
-    for day in pressure_list_for_arm:
-        date = datetime.datetime.strftime(day[0][5], "%Y-%m-%d") # TODO fix IndexError: list index out of range
-
-        if len(day) == 1:
-            systolic, diastolic = day[0][2], day[0][3]
-            date_list.append(date)
-            systolic_list.append(systolic)
-            diastolic_list.append(diastolic)
-
-        if len(day) > 1:
-            biggest_value = [0, 0]
-            for line in day:
-                systolic, diastolic = int(line[2]), int(line[3])
-
-                if systolic > biggest_value[0]:
-                    biggest_value = [systolic, diastolic]
-
-                elif systolic == biggest_value[0]:
-                    if diastolic > biggest_value[1]:
-                        biggest_value = [systolic, diastolic]
-
-                    else:
-                        continue
-
-                elif systolic < biggest_value[0]:
-                    continue
-
-            systolic, diastolic = str(biggest_value[0]), str(biggest_value[1])
-            date_list.append(date)
-            systolic_list.append(systolic)
-            diastolic_list.append(diastolic)
-
-    return systolic_list, diastolic_list, date_list, arm
+    return START
 
 
 def cancel(update, context):
@@ -270,183 +242,6 @@ def cancel(update, context):
     context.bot.send_message(chat_id=update.message.chat_id, text=text)
 
     return START
-
-
-def save_pressure_to_postgresql(
-        username, systolic, diastolic, timestamp, date, arm
-        ):
-    """
-    save username(unique), systolic, diastolic, timestamp, date, arm
-    """
-    connection = config()
-    cursor = connection.cursor()
-    try:
-        postgres_insert_users = """INSERT INTO users (username) VALUES (%s)"""
-        record_to_users = username
-        cursor.execute(postgres_insert_users, [record_to_users])
-    except psycopg2.errors.UniqueViolation:
-        print('there is an user un the DB')
-        connection.rollback()
-
-    finally:
-        postgres_insert_pressure = """
-        INSERT INTO pressure (
-            username, systolic, diastolic, timestamp, date, arm
-            )
-        VALUES (%s, %s, %s, %s, %s, %s)
-        """
-        records_to_pressure = (
-            username,
-            systolic,
-            diastolic,
-            timestamp,
-            date,
-            arm
-            ) # TODO change timestamp and data in the table
-
-        cursor.execute(postgres_insert_pressure, records_to_pressure)
-        cursor.close()
-        connection.commit()
-        connection.close()
-
-
-def find_dates_in_period(first_date, last_date):
-    """
-    find all dates between first date and last date(included the last)
-    """
-    start_date = datetime.datetime.strptime(first_date, "%d.%m.%Y")
-    end_date = datetime.datetime.strptime(last_date, "%d.%m.%Y")
-    end = end_date + datetime.timedelta(days=1)
-
-    date_generated = [
-        (start_date + datetime.timedelta(days=x)).strftime("%Y-%m-%d")
-        for x in range(0, (end-start_date).days)
-        ]
-
-    return date_generated
-
-
-def select_data_from_postgresql_1(first_date, last_date, user):
-    """
-    select data for the user and time period
-    """
-    pressure_list = []
-    date_generated = find_dates_in_period(first_date, last_date)
-    connection = config()
-    cursor = connection.cursor()
-    postgreSQL_select_query = """SELECT * FROM pressure WHERE username = %s;"""
-    username = user
-    cursor.execute(postgreSQL_select_query, [username])
-
-    pressure_data = cursor.fetchall()
-    cursor.close()
-    connection.close()
-
-    for line in pressure_data:
-
-        for date in date_generated:
-            date_format = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-
-            if date_format == line[5]:
-                pressure_list.append(line)
-
-    return pressure_list
-
-
-def arm_corrector(user_input_arm):
-    """
-    receive user input data (right or left arm)
-    and convert them into needed type ('r' or 'l')
-    """
-    if user_input_arm == "Right":
-        return "r"
-    if user_input_arm == "Left":
-        return "l"
-    if user_input_arm != "Left" and user_input_arm != "Right":
-        return "incorrect arm input"
-
-
-def create_graph(arm_list):
-    """
-    take [systolic_pressure], [diastolic_pressure], [dates or time], arm
-    and makes graph, save it like r_graph.png or l_graph.png
-    """
-    plot.close("all")
-    figsize = (8, 4)
-    fig = plot.figure(figsize=figsize, facecolor='pink', frameon=True)
-
-    ax = fig.add_subplot(111)  # создаем систему координат
-
-    if arm_list[3] == "r":
-        plot.title('Right arm')  # название графика
-    elif arm_list[3] == "l":
-        plot.title('Left arm')
-    else:
-        return "incorrect arm name"
-
-    list_systolic_pressure = list(map(int, arm_list[0]))  # данные из стр к int
-    list_diastolic_pressure = list(map(int, arm_list[1]))
-
-    list_dates = arm_list[2]  # даты из файла для оси x (даты)
-    ax.set_xticklabels(list_dates, rotation=10)
-    ax.plot(list_dates, list_systolic_pressure)  # строим график
-    ax.plot(list_dates, list_diastolic_pressure)
-
-    for ax in fig.axes:  # сетка на графике
-        ax.grid(True)
-
-    directory = os.path.dirname(os.path.abspath(__file__))
-    if arm_list[3] == "r":
-        graph_name = os.path.join(directory, 'r_graph.png')
-        savefig(graph_name)
-        return 'r_graph.png'
-
-    if arm_list[3] == "l":
-        graph_name = os.path.join(directory, 'l_graph.png')
-        savefig(graph_name)
-        return 'l_graph.png'
-
-    return "Successfully completed"
-
-
-def show_clock(uodate, context):
-    pass
-
-
-def take_time_for_timer(update, context):
-    pass
-
-
-def set_timer(update, context):
-    pass
-
-
-def alarm(context):
-    """Send the alarm message."""
-    job = context.job
-    context.bot.send_message(job.context, text="It's time to measure arterial pressure")
-
-
-def set_timer(update, context):
-    """Add a job to the queue."""
-    chat_id = update.message.chat_id
-    try:
-        # args[0] should contain the time for the timer in seconds
-        due = int(context.args[0])
-        print("due",due)
-        if due < 0:
-            update.message.reply_text('Sorry we can not go back to future!')
-            return
-
-        # Add job to queue
-        job = context.job_queue.run_once(alarm, due, context=chat_id)
-        context.chat_data['job'] = job
-
-        update.message.reply_text('Timer successfully set!')
-
-    except (IndexError, ValueError):
-        update.message.reply_text('Usage: /set <seconds>')
-
 
 
 def main():
@@ -463,16 +258,18 @@ def main():
 
             GRAPH_FOR_PERIOD: [CallbackQueryHandler(inline_handler)],
 
-            START: [CommandHandler('start', start)],
+            #REMINDER : [CommandHandler('set', take_time_for_timer)],
 
-            REMINDER: [CommandHandler("set", set_timer,
-                                  pass_args=True,
-                                  pass_job_queue=True,
-                                pass_chat_data=True)],
+            SET_TIMER: [MessageHandler(Filters.text, set_timer)],
+
+            START: [CommandHandler('start', start)],
 
         },
 
-        fallbacks=[CommandHandler('cancel', cancel)]
+        fallbacks=[
+            CommandHandler('cancel', cancel),
+            CommandHandler('set', take_time_for_timer)
+            ]
     )
 
 
