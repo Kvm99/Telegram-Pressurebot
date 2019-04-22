@@ -9,19 +9,13 @@ from telegram.ext import (
     )
 import logging
 import datetime
-
 import re
-import os
-import matplotlib.pyplot as plot
-from matplotlib.pyplot import close, savefig
 
 import telegramcalendar
 from functional_bot import (
     select_data_from_postgresql,
     prepare_data_from_potgresql_to_graph,
     save_pressure_to_postgresql,
-    find_dates_in_period,
-    select_data_from_postgresql,
     arm_corrector,
     create_graph,
     )
@@ -35,7 +29,7 @@ logging.basicConfig(
         filename="bot.log"
     )
 
-ARM, PRESSURE, GRAPH_FOR_PERIOD, START, REMINDER, SET_TIMER = range(6)
+ARM, PRESSURE, GRAPH_FOR_PERIOD, START, SET_TIMER = range(5)
 
 arm_buttons = [["Right", "Left"]]
 arms_markup = ReplyKeyboardMarkup(arm_buttons, one_time_keyboard=True)
@@ -95,7 +89,8 @@ def pressure(update, context):
     Return calendar
     """
     user_input_arm = context.user_data['arm']
-    arm = arm_corrector(user_input_arm) # TODO change format of saving arm-input
+    arm = arm_corrector(user_input_arm)
+    # TODO change format of saving arm-input
 
     user_input_pressure = update.message.text
     list_pressure = re.split(r'[\^\,\.:;\\/]', user_input_pressure)
@@ -149,15 +144,14 @@ def inline_handler(update, context):
 
     elif 'second_date' not in context.user_data:
         context.user_data['second_date'] = str_date
-
-    make_graph(update, context)
-
-    return REMINDER
+        make_graph(update, context)
+        
+        return START
 
 
 def make_graph(update, context):
-    first_date = context.user_data['first_date']
-    last_date = context.user_data['second_date']
+    first_date = context.user_data.get('first_date')
+    last_date = context.user_data.get('second_date')
     user = context.user_data['user_name']
 
     pressure_list = select_data_from_postgresql(first_date, last_date, user)
@@ -167,7 +161,7 @@ def make_graph(update, context):
     for arm in arms:
         try:
             arm_data = prepare_data_from_potgresql_to_graph(pressure_list, arm)
-        
+
             graph = create_graph(arm_data)
             context.bot.send_document(
                 chat_id=update.callback_query.message.chat_id,
@@ -180,7 +174,6 @@ def make_graph(update, context):
                 text="There aren't any arm data per date"
                 )
             return START
-
 
     if 'first_date' in context.user_data:
         del context.user_data['first_date']
@@ -195,8 +188,10 @@ def take_time_for_timer(update, context):
     if it exists, add new value
     """
     text = "Enter time to reminder, like 21:14"
-    context.bot.send_message(chat_id=update.message.chat_id, text=text, reply_markup=markup_remove)
-    
+    context.bot.send_message(
+        chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
+        )
+
     return SET_TIMER
 
 
@@ -205,7 +200,9 @@ def alarm(context):
     Send the alarm message
     """
     job = context.job
-    context.bot.send_message(job.context, text="It's time to measure arterial pressure")
+    context.bot.send_message(
+        job.context, text="It's time to measure arterial pressure"
+        )
 
 
 def set_timer(update, context):
@@ -218,10 +215,9 @@ def set_timer(update, context):
     and set timers one by one
     """
     alarm_time = update.message.text
-    context.user_data['alarm_time'] = datetime.datetime.strptime(alarm_time, "%H:%M").time() 
+    context.user_data['alarm_time'] = datetime.datetime.strptime(alarm_time, "%H:%M").time()
 
     alarm_time = context.user_data['alarm_time']
-    print(alarm_time)
     job = context.job_queue.run_daily(
         alarm, alarm_time, context=update.message.chat_id
         )
@@ -258,8 +254,6 @@ def main():
 
             GRAPH_FOR_PERIOD: [CallbackQueryHandler(inline_handler)],
 
-            #REMINDER : [CommandHandler('set', take_time_for_timer)],
-
             SET_TIMER: [MessageHandler(Filters.text, set_timer)],
 
             START: [CommandHandler('start', start)],
@@ -271,7 +265,6 @@ def main():
             CommandHandler('set', take_time_for_timer)
             ]
     )
-
 
     dispatcher.add_handler(conv_handler)
 
