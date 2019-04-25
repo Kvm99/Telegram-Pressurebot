@@ -145,7 +145,7 @@ def inline_handler(update, context):
     elif 'second_date' not in context.user_data:
         context.user_data['second_date'] = str_date
         make_graph(update, context)
-        
+
         return START
 
 

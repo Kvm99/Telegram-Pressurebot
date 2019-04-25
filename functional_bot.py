@@ -48,7 +48,7 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
 
     systolic_list, diastolic_list, date_list = [], [], []
 
-    if len(pressure_list_new) == 1:  # TODO change style from list[] to naming
+    if len(pressure_list_new) == 1:  # TODO change style from list to naming
         for line in pressure_list_new[0]:
             systolic, diastolic = line[2], line[3]
             time = datetime.datetime.strftime(line[4], "%H:%M")
