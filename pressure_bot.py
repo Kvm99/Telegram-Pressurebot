@@ -18,6 +18,8 @@ from functional_bot import (
     save_pressure_to_postgresql,
     arm_corrector,
     create_graph,
+    select_data_picked_by_dates,
+    find_dates_in_period
     )
 
 from bot_settings import TOKEN, PROXY
@@ -150,11 +152,19 @@ def inline_handler(update, context):
 
 
 def make_graph(update, context):
+    """
+    take data form postgresql,
+    find correct information for requested dates,
+    makes graphs.
+    Delete requested dates from context
+    """
     first_date = context.user_data.get('first_date')
     last_date = context.user_data.get('second_date')
     user = context.user_data['user_name']
 
-    pressure_list = select_data_from_postgresql(first_date, last_date, user)
+    pressure_data = select_data_from_postgresql(user)
+    date_generated = find_dates_in_period(first_date, last_date)
+    pressure_list = select_data_picked_by_dates(pressure_data, date_generated)
 
     arms = ["r", "l"]
 
