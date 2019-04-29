@@ -11,28 +11,22 @@ def make_list_for_arm(pressure_list, arm):
     from pressure_list makes list for "l" or "r" arm,
     then prepare them like list with lists (one per date)
     """
-    arm_list = []
-    for line in pressure_list:
-        if line[-1] == arm:
-            arm_list.append(line)
-        else:
-            continue
+    arm_list = [line for line in pressure_list if line[-1]==arm]
 
     pressure_list_new = []
-    my_date = datetime.date(2019, 1, 1)
+    comparison_date = datetime.date(1, 1, 1)
     new_list = []
 
     for line in arm_list:
-        if line[-2] != my_date:
-            pressure_list_new.append(new_list)
-            my_date = line[-2]
+        date = line[-2]
+
+        if date > comparison_date:
             new_list = []
             new_list.append(line)
-        new_list.append(line)
-
-    pressure_list_new.append(new_list)
-
-    del pressure_list_new[0]  # TODO make without first empty list
+            pressure_list_new.append(new_list)
+            comparison_date = date
+        else:
+            new_list.append(line)
 
     return pressure_list_new
 
@@ -48,53 +42,77 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
 
     systolic_list, diastolic_list, date_list = [], [], []
 
-    if len(pressure_list_new) == 1:  # TODO change style from list to naming
-        for line in pressure_list_new[0]:
-            systolic, diastolic = line[2], line[3]
-            time = datetime.datetime.strftime(line[4], "%H:%M")
-            date_list.append(time)
-            systolic_list.append(systolic)
-            diastolic_list.append(diastolic)
+    if len(pressure_list_new) == 0:
+        raise ValueError("There aren't any data per date")
+
+    elif len(pressure_list_new) == 1:  # TODO change style from list to naming
+        systolic, diastolic = pressure_list_new[0][2], pressure_list_new[0][3]
+        time = datetime.datetime.strftime(pressure_list_new[0][4], "%H:%M")
+
+        systolic_list, diastolic_list, date_list =  append_to_lists(
+            systolic_list, diastolic_list, date_list, systolic, diastolic, time
+            )
 
         return systolic_list, diastolic_list, date_list, arm
 
-    elif len(pressure_list_new) == 0:
-        raise ValueError("There aren't any data per date")
-
     for day in pressure_list_new:
         date = datetime.datetime.strftime(day[0][5], "%Y-%m-%d")
-        # TODO fix IndexError: list index out of range
 
         if len(day) == 1:
             systolic, diastolic = day[0][2], day[0][3]
-            date_list.append(date)
-            systolic_list.append(systolic)
-            diastolic_list.append(diastolic)
+            systolic_list, diastolic_list, date_list = append_to_lists(
+                systolic_list, diastolic_list, date_list, systolic, diastolic, date
+                )
 
         if len(day) > 1:
-            biggest_value = [0, 0]
-            for line in day:
-                systolic, diastolic = int(line[2]), int(line[3])
-
-                if systolic > biggest_value[0]:
-                    biggest_value = [systolic, diastolic]
-
-                elif systolic == biggest_value[0]:
-                    if diastolic > biggest_value[1]:
-                        biggest_value = [systolic, diastolic]
-
-                    else:
-                        continue
-
-                elif systolic < biggest_value[0]:
-                    continue
-
-            systolic, diastolic = str(biggest_value[0]), str(biggest_value[1])
-            date_list.append(date)
-            systolic_list.append(systolic)
-            diastolic_list.append(diastolic)
+            systolic, diastolic = find_biggest_value_per_day(day)
+            systolic_list, diastolic_list, date_list = append_to_lists(
+                systolic_list, diastolic_list, date_list, systolic, diastolic, date
+                )
 
     return systolic_list, diastolic_list, date_list, arm
+
+
+def append_to_lists(
+    systolic_list, diastolic_list, date_list, systolic, diastolic, date
+    ):
+    """
+    Append systolic, diastolic, date to similar lists
+    """
+    systolic_list.append(systolic)
+    diastolic_list.append(diastolic)
+    date_list.append(date)
+
+    return systolic_list, diastolic_list, date_list
+
+
+def find_biggest_value_per_day(day_data):
+    """
+    Take pressure data per day and find 
+    biggest value.
+    If some systolic and other systolic equal,
+    compare by diastolic
+    """
+    biggest_value = [0, 0]
+    for line in day_data:
+        systolic, diastolic = int(line[2]), int(line[3])
+
+        if systolic > biggest_value[0]:
+            biggest_value = [systolic, diastolic]
+
+        elif systolic == biggest_value[0]:
+            if diastolic > biggest_value[1]:
+                biggest_value = [systolic, diastolic]
+
+            else:
+                continue
+
+        elif systolic < biggest_value[0]:
+            continue
+
+    systolic, diastolic = str(biggest_value[0]), str(biggest_value[1])
+
+    return systolic, diastolic
 
 
 def save_pressure_to_postgresql(
@@ -110,7 +128,6 @@ def save_pressure_to_postgresql(
         record_to_users = username
         cursor.execute(postgres_insert_users, [record_to_users])
     except psycopg2.errors.UniqueViolation:
-        print('there is an user un the DB')
         connection.rollback()
 
     finally:
@@ -141,23 +158,25 @@ def find_dates_in_period(first_date, last_date):
     """
     start_date = datetime.datetime.strptime(first_date, "%d.%m.%Y")
     end_date = datetime.datetime.strptime(last_date, "%d.%m.%Y")
-    end = end_date + datetime.timedelta(days=1)
 
-    date_generated = [
-        (start_date + datetime.timedelta(days=x)).strftime("%Y-%m-%d")
-        for x in range(0, (end-start_date).days)
-        ]
+    if end_date >= start_date:
+        end = end_date + datetime.timedelta(days=1)
 
-    return date_generated
+        date_generated = [
+            (start_date + datetime.timedelta(days=x)).strftime("%Y-%m-%d")
+            for x in range(0, (end-start_date).days)
+            ]
+
+        return date_generated
+
+    else:
+        raise NameError('Sequence of days is broken')
 
 
-def select_data_from_postgresql(first_date, last_date, user):
+def select_data_from_postgresql(user):
     """
     select data for the user and time period
     """
-    pressure_list = []
-    date_generated = find_dates_in_period(first_date, last_date)
-
     connection = config()
     cursor = connection.cursor()
     postgreSQL_select_query = """SELECT * FROM pressure WHERE username = %s;"""
@@ -168,6 +187,15 @@ def select_data_from_postgresql(first_date, last_date, user):
     cursor.close()
     connection.close()
 
+    return pressure_data
+
+
+def find_requested_data_from_all_of_db(pressure_data, date_generated):
+    """
+    take all selected date from DB
+    and find only for requested dates
+    """
+    pressure_list = []
     for line in pressure_data:
 
         for date in date_generated:
@@ -189,12 +217,13 @@ def arm_corrector(user_input_arm):
     if user_input_arm == "Left":
         return "l"
     if user_input_arm != "Left" and user_input_arm != "Right":
-        return "incorrect arm input"
+        raise NameError('incorrect arm input')
 
 
 def create_graph(arm_list):
     """
     take [systolic_pressure], [diastolic_pressure], [dates or time], arm
+
     and makes graph, save it like r_graph.png or l_graph.png
     """
     plot.close("all")
@@ -203,33 +232,35 @@ def create_graph(arm_list):
 
     ax = fig.add_subplot(111)
 
-    if arm_list[3] == "r":
-        plot.title('Right arm')
-    elif arm_list[3] == "l":
-        plot.title('Left arm')
-    else:
-        return "incorrect arm name"
+    arm, list_systolic_pressure, list_diastolic_pressure = \
+        marking_on_coordinate_axes(arm_list)
 
-    list_systolic_pressure = list(map(int, arm_list[0]))
-    list_diastolic_pressure = list(map(int, arm_list[1]))
-
-    list_dates = arm_list[2]
-    ax.set_xticklabels(list_dates, rotation=10)
-    ax.plot(list_dates, list_systolic_pressure)
-    ax.plot(list_dates, list_diastolic_pressure)
+    plot.title(arm)
+    dates = arm_list[2]
+    ax.set_xticklabels(dates, rotation=10)
+    ax.plot(dates, list_systolic_pressure)
+    ax.plot(dates, list_diastolic_pressure)
 
     for ax in fig.axes:
         ax.grid(True)
 
     directory = os.path.dirname(os.path.abspath(__file__))
+    graph_name = os.path.join(directory, '%s_graph.png' %arm)
+    savefig(graph_name)
+
+    return '%s_graph.png' %arm
+
+
+def marking_on_coordinate_axes(arm_list):
     if arm_list[3] == "r":
-        graph_name = os.path.join(directory, 'r_graph.png')
-        savefig(graph_name)
-        return 'r_graph.png'
+        arm = "Right arm"
+    elif arm_list[3] == "l":
+        arm = "Left arm"
+    else:
+        raise ValueError("Incorrect arm name")
 
-    if arm_list[3] == "l":
-        graph_name = os.path.join(directory, 'l_graph.png')
-        savefig(graph_name)
-        return 'l_graph.png'
+    list_systolic_pressure = list(map(int, arm_list[0]))
+    list_diastolic_pressure = list(map(int, arm_list[1]))
 
-    return "Successfully completed"
+    return arm, list_systolic_pressure, list_diastolic_pressure
+
