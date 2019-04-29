@@ -159,7 +159,10 @@ def find_dates_in_period(first_date, last_date):
     start_date = datetime.datetime.strptime(first_date, "%d.%m.%Y")
     end_date = datetime.datetime.strptime(last_date, "%d.%m.%Y")
 
-    if end_date >= start_date:
+    if start_date == end_date:
+        return [start_date.strftime("%Y-%m-%d")] 
+
+    elif end_date > start_date:
         end = end_date + datetime.timedelta(days=1)
 
         date_generated = [
@@ -190,7 +193,7 @@ def select_data_from_postgresql(user):
     return pressure_data
 
 
-def find_requested_data_from_all_of_db(pressure_data, date_generated):
+def select_data_picked_by_dates(pressure_data, date_generated):
     """
     take all selected date from DB
     and find only for requested dates
