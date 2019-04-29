@@ -31,8 +31,10 @@ logging.basicConfig(
         filename="bot.log"
     )
 
-ARM, PRESSURE, GRAPH_FOR_PERIOD, START, SET_TIMER = range(5)
+ARM, PRESSURE, GRAPH_FOR_PERIOD, START, SET_TIMER, START_BUTTON = range(6)
 
+start_button = [["START", "SET TIMER"]]
+start_markup = ReplyKeyboardMarkup(start_button, one_time_keyboard=True)
 arm_buttons = [["Right", "Left"]]
 arms_markup = ReplyKeyboardMarkup(arm_buttons, one_time_keyboard=True)
 markup_remove = ReplyKeyboardRemove(selective=False)
@@ -61,6 +63,23 @@ def start(update, context):
         )
 
     return ARM
+
+
+def start_button(update, context):
+    user_input = update.message.text
+    print(user_input)
+
+    if user_input == "START":
+        context.bot.send_message(
+        chat_id=update.message.chat_id, text="Which arm have you used?", reply_markup=arms_markup
+        )
+        return ARM
+
+    elif user_input == "SET TIMER":
+        context.bot.send_message(
+        chat_id=update.message.chat_id, text="Enter time to reminder, like 21:14", reply_markup=markup_remove
+        )
+        return SET_TIMER
 
 
 def arm(update, context):
@@ -148,7 +167,11 @@ def inline_handler(update, context):
         context.user_data['second_date'] = str_date
         make_graph(update, context)
 
-        return START
+        text = "What you'd like to do next?"
+
+        context.bot.send_message(chat_id=update.callback_query.message.chat_id, text=text, reply_markup=start_markup)
+
+        return START_BUTTON
 
 
 def make_graph(update, context):
@@ -181,9 +204,10 @@ def make_graph(update, context):
         except ValueError:
             context.bot.send_message(
                 chat_id=update.callback_query.message.chat_id,
-                text="There aren't any arm data per date"
+                text="There aren't any arm data per date",
+                reply_markup=start_markup
                 )
-            return START
+            return START_BUTTON #не вызывает start_button функцию
 
     if 'first_date' in context.user_data:
         del context.user_data['first_date']
@@ -232,9 +256,9 @@ def set_timer(update, context):
         alarm, alarm_time, context=update.message.chat_id
         )
     context.chat_data['job'] = job
-    update.message.reply_text('Timer successfully set!')
+    update.message.reply_text('Timer successfully set!', reply_markup=start_markup)
 
-    return START
+    return START_BUTTON
 
 
 def cancel(update, context):
@@ -245,9 +269,9 @@ def cancel(update, context):
     text = (
         "Bye! I hope we can talk again some day."
     )
-    context.bot.send_message(chat_id=update.message.chat_id, text=text)
+    context.bot.send_message(chat_id=update.message.chat_id, text=text, reply_markup=start_markup)
 
-    return START
+    return START_BUTTON
 
 
 def main():
@@ -258,6 +282,9 @@ def main():
         entry_points=[CommandHandler('start', start)],
 
         states={
+
+            START: [CommandHandler('start', start)],
+
             ARM: [MessageHandler(Filters.regex('^(Right|Left)$'), arm)],
 
             PRESSURE: [MessageHandler(Filters.text, pressure)],
@@ -266,7 +293,7 @@ def main():
 
             SET_TIMER: [MessageHandler(Filters.text, set_timer)],
 
-            START: [CommandHandler('start', start)],
+            START_BUTTON: [MessageHandler(Filters.text, start_button)]
 
         },
 
