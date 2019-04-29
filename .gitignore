@@ -1,7 +1,7 @@
 bot_settings.py
 /env
-r_graph.png
-l_graph.png
+Right arm_graph.png
+Left arm_graph.png
 *json
 __pycache__/
 myvenv/
