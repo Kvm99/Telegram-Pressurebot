@@ -31,9 +31,9 @@ logging.basicConfig(
         filename="bot.log"
     )
 
-ARM, PRESSURE, GRAPH_FOR_PERIOD, START, SET_TIMER, START_BUTTON = range(6)
+ARM, PRESSURE, GRAPH_FOR_PERIOD, START, SET_TIMER, REMOVE_TIMER, START_BUTTON = range(7)
 
-start_button = [["START", "SET TIMER"]]
+start_button = [["START", "SET TIMER", "REMOVE TIMER"]]
 start_markup = ReplyKeyboardMarkup(start_button, one_time_keyboard=True)
 arm_buttons = [["Right", "Left"]]
 arms_markup = ReplyKeyboardMarkup(arm_buttons, one_time_keyboard=True)
@@ -71,15 +71,27 @@ def start_button(update, context):
 
     if user_input == "START":
         context.bot.send_message(
-        chat_id=update.message.chat_id, text="Which arm have you used?", reply_markup=arms_markup
+        chat_id=update.message.chat_id,
+        text="Which arm have you used?",
+        reply_markup=arms_markup
         )
         return ARM
 
     elif user_input == "SET TIMER":
         context.bot.send_message(
-        chat_id=update.message.chat_id, text="Enter time to reminder, like 21:14", reply_markup=markup_remove
+        chat_id=update.message.chat_id,
+        text="Enter time to reminder, like 21:14",
+        reply_markup=markup_remove
         )
         return SET_TIMER
+
+    elif user_input == "REMOVE TIMER":
+        context.bot.send_message(
+        chat_id=update.message.chat_id,
+        text="Which timer you'd like to stop? Enter like 20:18",
+        reply_markup=markup_remove
+        )
+        return REMOVE_TIMER
 
 
 def arm(update, context):
@@ -118,7 +130,7 @@ def pressure(update, context):
     systolic, diastolic = list_pressure[0], list_pressure[1]
     date = datetime.datetime.now().date()
     timestamp = datetime.datetime.now()
-    username = context.user_data['user_name']
+    username = context.user_data.get('user_name')
 
     save_pressure_to_postgresql(
         username, systolic, diastolic, timestamp, date, arm
@@ -139,7 +151,7 @@ def pressure(update, context):
     return GRAPH_FOR_PERIOD
 
 
-def inline_handler(update, context):
+def calendar(update, context):
     """
     Take two dates from user input in calendar.
     send them to user,
@@ -183,7 +195,7 @@ def make_graph(update, context):
     """
     first_date = context.user_data.get('first_date')
     last_date = context.user_data.get('second_date')
-    user = context.user_data['user_name']
+    user = context.user_data.get('user_name')
 
     pressure_data = select_data_from_postgresql(user)
     date_generated = find_dates_in_period(first_date, last_date)
@@ -221,7 +233,7 @@ def take_time_for_timer(update, context):
     take time from user and save it into context
     if it exists, add new value
     """
-    text = "Enter time to reminder, like 21:14"
+    text = "Enter time to daily reminder, like 21:14"
     context.bot.send_message(
         chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
         )
@@ -235,7 +247,7 @@ def alarm(context):
     """
     job = context.job
     context.bot.send_message(
-        job.context, text="It's time to measure arterial pressure"
+        job.context, text="IT'S TIME to measure arterial pressure"
         )
 
 
@@ -248,17 +260,55 @@ def set_timer(update, context):
     If it's more than one value, take differences between each other
     and set timers one by one
     """
-    alarm_time = update.message.text
-    context.user_data['alarm_time'] = datetime.datetime.strptime(alarm_time, "%H:%M").time()
+    timer = update.message.text
+    timer_list = []
 
-    alarm_time = context.user_data['alarm_time']
-    job = context.job_queue.run_daily(
-        alarm, alarm_time, context=update.message.chat_id
-        )
-    context.chat_data['job'] = job
-    update.message.reply_text('Timer successfully set!', reply_markup=start_markup)
+    if 'alarm_time' in context.user_data and len(context.user_data['alarm_time']) > 1:
+        timer_list = context.user_data['alarm_time']
+        timer_list.append(timer)
+
+    else:
+        context.user_data['alarm_time'] = timer_list
+        timer_list.append(datetime.datetime.strptime(timer, "%H:%M").time())
+
+    alarm_time = context.user_data.get('alarm_time')
+
+    for time in alarm_time:
+        job = context.job_queue.run_daily(
+            alarm, time, context=update.message.chat_id
+            )
+        context.chat_data['job'] = job
+        update.message.reply_text('Timer successfully set!', reply_markup=start_markup)
 
     return START_BUTTON
+
+
+def remove_timer(update, context):
+    """
+    stop timer in the job queue 
+    """
+    timer = datetime.datetime.strptime(update.message.text, "%H:%M").time()
+    timer_list = context.user_data.get('alarm_time')
+    print(context.user_data)
+
+    if timer in timer_list:
+        job = context.chat_data.get('job')
+        context.job_queue.stop()
+
+        timer_list.remove(timer)
+        print(context.user_data)
+
+        update.message.reply_text(
+            "Timer successfully stoped",
+            reply_markup=start_markup
+            )  # TODO dalete timer from context
+
+    else:
+        update.message.reply_text(
+            "There isn't such timer",
+            reply_markup=start_markup)
+
+    return START_BUTTON 
 
 
 def cancel(update, context):
@@ -289,9 +339,11 @@ def main():
 
             PRESSURE: [MessageHandler(Filters.text, pressure)],
 
-            GRAPH_FOR_PERIOD: [CallbackQueryHandler(inline_handler)],
+            GRAPH_FOR_PERIOD: [CallbackQueryHandler(calendar)],
 
             SET_TIMER: [MessageHandler(Filters.text, set_timer)],
+
+            REMOVE_TIMER: [MessageHandler(Filters.text, remove_timer)],
 
             START_BUTTON: [MessageHandler(Filters.text, start_button)]
 

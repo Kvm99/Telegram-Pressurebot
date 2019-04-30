@@ -45,13 +45,14 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
     if len(pressure_list_new) == 0:
         raise ValueError("There aren't any data per date")
 
-    elif len(pressure_list_new) == 1:  # TODO change style from list to naming
-        systolic, diastolic = pressure_list_new[0][2], pressure_list_new[0][3]
-        time = datetime.datetime.strftime(pressure_list_new[0][4], "%H:%M")
+    elif len(pressure_list_new) == 1:
+        for each_time in pressure_list_new[0]:
+            systolic, diastolic = each_time[2], each_time[3]
+            time = datetime.datetime.strftime(each_time[4], "%H:%M")
 
-        systolic_list, diastolic_list, date_list =  append_to_lists(
-            systolic_list, diastolic_list, date_list, systolic, diastolic, time
-            )
+            systolic_list, diastolic_list, date_list =  append_to_lists(
+                systolic_list, diastolic_list, date_list, systolic, diastolic, time
+                )
 
         return systolic_list, diastolic_list, date_list, arm
 
@@ -266,4 +267,3 @@ def marking_on_coordinate_axes(arm_list):
     list_diastolic_pressure = list(map(int, arm_list[1]))
 
     return arm, list_systolic_pressure, list_diastolic_pressure
-
