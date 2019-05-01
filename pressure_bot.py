@@ -31,9 +31,10 @@ logging.basicConfig(
         filename="bot.log"
     )
 
-ARM, PRESSURE, GRAPH_FOR_PERIOD, START, SET_TIMER, REMOVE_TIMER, START_BUTTON = range(7)
+ARM, PRESSURE, GRAPH_FOR_PERIOD, START, \
+SET_TIMER, REMOVE_TIMER, START_BUTTON, SHOW_TIMERS = range(8)
 
-start_button = [["START", "SET TIMER", "REMOVE TIMER"]]
+start_button = [["START", "SET TIMER", "REMOVE TIMER", "SHOW EXISTED TIMERS"]]
 start_markup = ReplyKeyboardMarkup(start_button, one_time_keyboard=True)
 arm_buttons = [["Right", "Left"]]
 arms_markup = ReplyKeyboardMarkup(arm_buttons, one_time_keyboard=True)
@@ -67,7 +68,6 @@ def start(update, context):
 
 def start_button(update, context):
     user_input = update.message.text
-    print(user_input)
 
     if user_input == "START":
         context.bot.send_message(
@@ -92,6 +92,14 @@ def start_button(update, context):
         reply_markup=markup_remove
         )
         return REMOVE_TIMER
+
+    elif user_input == "SHOW EXISTED TIMERS":
+        context.bot.send_message(
+        chat_id=update.message.chat_id,
+        text="Press any button",
+        reply_markup=markup_remove
+        )  # TODO make without any input from user
+        return SHOW_TIMERS
 
 
 def arm(update, context):
@@ -255,12 +263,9 @@ def alarm(context):
 
 def set_timer(update, context):
     """
-    take alarm value from context
-    find time now
-    find differense between time now and alarm time
-    and set timer.
-    If it's more than one value, take differences between each other
-    and set timers one by one
+    take new value for timer,
+    added it into context.user_data like ['alarm_time'] = ['21:14'],
+    make job for timer, put it into chat_data like chat_data['21:14'] = job
     """
     new_timer = update.message.text
     timer = datetime.datetime.strptime(new_timer, "%H:%M").time()
@@ -286,7 +291,8 @@ def set_timer(update, context):
 
 def remove_timer(update, context):
     """
-    stop timer in the job queue 
+    remove timer in the job queue,
+    if it's not exist, sent message
     """
     existed_timer = update.message.text
 
@@ -316,7 +322,32 @@ def remove_timer(update, context):
     else:
         update.message.reply_text(
             "There isn't such timer",
-            reply_markup=start_markup)
+            reply_markup=start_markup
+            )
+
+    return START_BUTTON
+
+
+def show_timers(update, context):
+    """
+    show all existed timers
+    """
+    timers = context.user_data.get('alarm_time')
+    if timers is not None:
+        text = ""
+        for time in timers:
+            text += "%s \n" %time
+        
+        context.bot.send_message(
+        chat_id=update.message.chat_id, text=text, reply_markup=start_markup
+        )
+
+    else:
+        print('2')
+        text = "There aren't any timers"
+        context.bot.send_message(
+        chat_id=update.message.chat_id, text=text, reply_markup=start_markup
+        )
 
     return START_BUTTON
 
@@ -354,6 +385,8 @@ def main():
             SET_TIMER: [MessageHandler(Filters.text, set_timer)],
 
             REMOVE_TIMER: [MessageHandler(Filters.text, remove_timer)],
+
+            SHOW_TIMERS: [MessageHandler(Filters.text, show_timers)],
 
             START_BUTTON: [MessageHandler(Filters.text, start_button)]
 
