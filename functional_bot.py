@@ -153,6 +153,46 @@ def save_pressure_to_postgresql(
         connection.close()
 
 
+def save_user_to_postgresql(
+        user_name, sex, age, weight, work
+        ):
+    """
+    save user data to postgresql
+    """
+    connection = config()
+    cursor = connection.cursor()
+    try:
+        postgres_insert_users = """INSERT INTO users (
+        username, sex, age, weight, work
+        ) VALUES (%s, %s, %s, %s, %s)"""
+        records_to_users = (
+            user_name,
+            sex,
+            age,
+            weight,
+            work
+            )
+        cursor.execute(postgres_insert_users, records_to_users)
+
+    except psycopg2.errors.UniqueViolation:
+        connection.rollback()
+        cursor.execute(
+            """
+            UPDATE users SET 
+            sex={}, age={}, weight={}, work={} WHERE username LIKE {}
+            """.format(sex, age, weight, work, user_name)
+            )
+
+        #VALUES (%s, %s, %s, %s, %s)"""
+        #values = (sex, age, weight, work, username)
+        #cursor.execute(add_sex, values)
+
+    finally:   
+        cursor.close()
+        connection.commit()
+        connection.close()
+
+
 def find_dates_in_period(first_date, last_date):
     """
     find all dates between first date and last date(included the last)

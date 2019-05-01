@@ -5,7 +5,7 @@ from db_settings import config
 def create_tables():
     """
     create 2 tables:
-    users: - username,
+    users: - username, sex, age, weight, work
     pressure: pressure_id, username, systolic, diastoic,
     timestamp, date, arm, foreign key to users
     """
@@ -13,7 +13,11 @@ def create_tables():
     tables = (
         """
         CREATE TABLE IF NOT EXISTS users (
-          username VARCHAR(50) PRIMARY KEY NOT NULL
+          username VARCHAR(50) PRIMARY KEY NOT NULL,
+          sex VARCHAR(20),
+          age VARCHAR(15),
+          weight VARCHAR(15),
+          work VARCHAR(15)
         );
         """,
 
