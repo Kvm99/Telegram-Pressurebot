@@ -15,6 +15,7 @@ import telegramcalendar
 from functional_bot import (
     select_data_from_postgresql,
     prepare_data_from_potgresql_to_graph,
+    save_user_to_postgresql,
     save_pressure_to_postgresql,
     arm_corrector,
     create_graph,
@@ -31,33 +32,127 @@ logging.basicConfig(
         filename="bot.log"
     )
 
-ARM, PRESSURE, GRAPH_FOR_PERIOD, START, \
-SET_TIMER, REMOVE_TIMER, START_BUTTON, SHOW_TIMERS = range(8)
+START, AGE, SEX, WEIGHT, ADD_PRESSURE, ARM, PRESSURE, GRAPH_FOR_PERIOD, \
+SET_TIMER, REMOVE_TIMER, START_BUTTON, SHOW_TIMERS = range(12)
 
 start_button = [["START", "SET TIMER", "REMOVE TIMER", "SHOW EXISTED TIMERS"]]
 start_markup = ReplyKeyboardMarkup(start_button, one_time_keyboard=True)
+sex_buttons = [["male", "female", "other"]]
+sex_markup = ReplyKeyboardMarkup(sex_buttons, one_time_keyboard=True)
 arm_buttons = [["Right", "Left"]]
 arms_markup = ReplyKeyboardMarkup(arm_buttons, one_time_keyboard=True)
+work_buttons = [["Active", "Sitting", "Combine"]]
+work_markup = ReplyKeyboardMarkup(work_buttons, one_time_keyboard=True)
 markup_remove = ReplyKeyboardRemove(selective=False)
 
 
-def start(update, context):
+def greeting(update, context):
     """
-    greet user, ask name of the arm for a new pressure data,
-    save it into context
+    start with age input
     """
+    print(context.user_data)
     user_text = update.message
     text = (
-        '''Hi, %s, I'm a pressure - keeper - bot.
+        '''
+        Hi, %s, I'm a PressureKeeperBot.
+
+        For better analytics please enter
+        YOUR AGE:
+
+        send /cancel to stop talking to me,
+        '''
+        % user_text['chat']['first_name']
+        )
+
+    user_name = user_text['chat']['username']
+    context.user_data['user_name'] = user_name
+
+    context.bot.send_message(
+        chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
+        )
+
+    return AGE
+
+
+def age(update, context):
+    """
+    save age into context.user_data,
+    ask sex
+    """
+    user_input = update.message.text
+    context.user_data['age'] = user_input
+    # TODO modify age every year
+
+    text = "Choose your sex:"
+
+    context.bot.send_message(
+        chat_id=update.message.chat_id, text=text, reply_markup=sex_markup
+        )
+
+    return SEX
+
+
+def sex(update, context):
+    """
+    save sex into context.user_data,
+    ask weight
+    """
+    user_input = update.message.text
+    context.user_data['sex'] = user_input
+
+    text = "Also enter your weight:"
+    context.bot.send_message(
+        chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
+        )
+
+    return WEIGHT
+
+
+def weight(update, context):
+    """
+    save weight into context.user_data,
+    ask work
+    """
+    user_input = update.message.text
+    context.user_data['weight'] = user_input
+
+    text = "Choose nature of your work"
+
+    context.bot.send_message(
+        chat_id=update.message.chat_id, text=text, reply_markup=work_markup
+        )
+
+    return ADD_PRESSURE
+
+
+def add_pressure(update, context):
+    """
+    save work into context.user_data,
+    save all user data into Postgresql
+    ask name of the arm for a new pressure data,
+    save it into context
+    """
+    user_input = update.message.text
+    context.user_data['work'] = user_input
+    print(context.user_data)
+
+
+    username = context.user_data['user_name']
+    sex = context.user_data['sex']
+    age = context.user_data['age']
+    weight = context.user_data['weight']
+    work = context.user_data['work']    
+
+    save_user_to_postgresql(username, sex, age, weight, work)
+
+    text = (
+        '''
+        Let's save your pressure data.
 
         Which arm have you used?
 
-        send /cancel to stop talking to me,
-        or /set to set reminder'''
-        % user_text['chat']['first_name']
+        '''
         )
-    user_name = user_text['chat']['username']
-    context.user_data['user_name'] = user_name
 
     context.bot.send_message(
         chat_id=update.message.chat_id, text=text, reply_markup=arms_markup
@@ -370,11 +465,19 @@ def main():
     dispatcher = updater.dispatcher
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
+        entry_points=[CommandHandler('start', greeting)],
 
         states={
 
-            START: [CommandHandler('start', start)],
+            START: [CommandHandler('start', greeting)],
+
+            AGE: [MessageHandler(Filters.text, age)],
+
+            SEX: [MessageHandler(Filters.text, sex)],
+
+            WEIGHT: [MessageHandler(Filters.text, weight)],
+
+            ADD_PRESSURE: [MessageHandler(Filters.text, add_pressure)],
 
             ARM: [MessageHandler(Filters.regex('^(Right|Left)$'), arm)],
 
