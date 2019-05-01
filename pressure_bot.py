@@ -250,6 +250,8 @@ def alarm(context):
         job.context, text="IT'S TIME to measure arterial pressure"
         )
 
+    return START_BUTTON
+
 
 def set_timer(update, context):
     """
@@ -260,25 +262,24 @@ def set_timer(update, context):
     If it's more than one value, take differences between each other
     and set timers one by one
     """
-    timer = update.message.text
+    new_timer = update.message.text
+    timer = datetime.datetime.strptime(new_timer, "%H:%M").time()
     timer_list = []
 
-    if 'alarm_time' in context.user_data and len(context.user_data['alarm_time']) > 1:
+    if 'alarm_time' in context.user_data:
         timer_list = context.user_data['alarm_time']
         timer_list.append(timer)
 
     else:
         context.user_data['alarm_time'] = timer_list
-        timer_list.append(datetime.datetime.strptime(timer, "%H:%M").time())
+        timer_list.append(timer)
 
-    alarm_time = context.user_data.get('alarm_time')
-
-    for time in alarm_time:
-        job = context.job_queue.run_daily(
-            alarm, time, context=update.message.chat_id
-            )
-        context.chat_data['job'] = job
-        update.message.reply_text('Timer successfully set!', reply_markup=start_markup)
+    job = context.job_queue.run_daily(
+        alarm, timer, context=update.message.chat_id
+        )
+    context.chat_data[new_timer] = job
+    
+    update.message.reply_text('Timer successfully set!', reply_markup=start_markup)
 
     return START_BUTTON
 
@@ -287,28 +288,37 @@ def remove_timer(update, context):
     """
     stop timer in the job queue 
     """
-    timer = datetime.datetime.strptime(update.message.text, "%H:%M").time()
+    existed_timer = update.message.text
+
+    try:
+        timer = datetime.datetime.strptime(existed_timer, "%H:%M").time()
+
+    except ValueError:
+        update.message.reply_text(
+            "Please enter like 21:34",
+            reply_markup=start_markup)
+
     timer_list = context.user_data.get('alarm_time')
-    print(context.user_data)
 
-    if timer in timer_list:
-        job = context.chat_data.get('job')
-        context.job_queue.stop()
+    if timer_list is not None and timer in timer_list:
+        job = context.chat_data.get(existed_timer)
 
+        job.schedule_removal()
         timer_list.remove(timer)
-        print(context.user_data)
 
         update.message.reply_text(
             "Timer successfully stoped",
             reply_markup=start_markup
-            )  # TODO dalete timer from context
+            )
+    #elif user would like to delete all the timers
+    # context.job_queue.stop() 
 
     else:
         update.message.reply_text(
             "There isn't such timer",
             reply_markup=start_markup)
 
-    return START_BUTTON 
+    return START_BUTTON
 
 
 def cancel(update, context):
