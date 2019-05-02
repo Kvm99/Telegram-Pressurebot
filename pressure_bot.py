@@ -20,7 +20,8 @@ from functional_bot import (
     arm_corrector,
     create_graph,
     select_data_picked_by_dates,
-    find_dates_in_period
+    find_dates_in_period,
+    analysis_result
     )
 
 from bot_settings import TOKEN, PROXY
@@ -33,11 +34,13 @@ logging.basicConfig(
     )
 
 START, AGE, SEX, WEIGHT, ADD_PRESSURE, ARM, PRESSURE, GRAPH_FOR_PERIOD, \
-SET_TIMER, REMOVE_TIMER, START_BUTTON, SHOW_TIMERS = range(12)
+    SET_TIMER, REMOVE_TIMER, START_BUTTON, SHOW_TIMERS = range(12)
 
-start_button = [["ADD PRESSURE", "SHOW GRAPHS"],
-["SET TIMER", "REMOVE TIMER", "SHOW TIMERS"]
-]
+start_button = [
+    ["ADD PRESSURE", "SHOW GRAPHS"],
+    ["SET TIMER", "REMOVE TIMER", "SHOW TIMERS"],
+    ["Add or change personal data to better analytics"]
+    ]
 start_markup = ReplyKeyboardMarkup(start_button, one_time_keyboard=True)
 sex_buttons = [["male", "female", "other"]]
 sex_markup = ReplyKeyboardMarkup(sex_buttons, one_time_keyboard=True)
@@ -61,7 +64,8 @@ def greeting(update, context):
         For better analytics please enter
         YOUR AGE:
 
-        send /cancel to stop talking to me,
+        send /cancel to stop talking to me
+        or /skip to go to menu.
         '''
         % user_text['chat']['first_name']
         )
@@ -136,14 +140,12 @@ def add_pressure(update, context):
     """
     user_input = update.message.text
     context.user_data['work'] = user_input
-    print(context.user_data)
-
 
     username = context.user_data['user_name']
     sex = context.user_data['sex']
     age = context.user_data['age']
     weight = context.user_data['weight']
-    work = context.user_data['work']    
+    work = context.user_data['work']
 
     save_user_to_postgresql(username, sex, age, weight, work)
 
@@ -157,7 +159,9 @@ def add_pressure(update, context):
         )
 
     context.bot.send_message(
-        chat_id=update.message.chat_id, text=text, reply_markup=arms_markup
+        chat_id=update.message.chat_id,
+        text=text,
+        reply_markup=arms_markup
         )
 
     return ARM
@@ -166,46 +170,57 @@ def add_pressure(update, context):
 def start_button(update, context):
     user_input = update.message.text
 
-    if user_input == "START":
+    if user_input == "ADD PRESSURE":
         context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text="Which arm have you used?",
-        reply_markup=arms_markup
-        )
+            chat_id=update.message.chat_id,
+            text="Which arm have you used?",
+            reply_markup=arms_markup
+            )
         return ARM
 
     elif user_input == "SET TIMER":
         context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text="Enter time to reminder, like 21:14",
-        reply_markup=markup_remove
-        )
+            chat_id=update.message.chat_id,
+            text="Enter time to reminder, like 21:14",
+            reply_markup=markup_remove
+            )
         return SET_TIMER
 
     elif user_input == "REMOVE TIMER":
         context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text="Which timer you'd like to stop? Enter like 20:18",
-        reply_markup=markup_remove
-        )
+            chat_id=update.message.chat_id,
+            text="Which timer you'd like to stop? Enter like 20:18",
+            reply_markup=markup_remove
+            )
         return REMOVE_TIMER
 
     elif user_input == "SHOW TIMERS":
         context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text="Press any button to continue",
-        reply_markup=markup_remove
-        )  # TODO make without any input from user
+            chat_id=update.message.chat_id,
+            text="Press any button to continue",
+            reply_markup=markup_remove
+            )  # TODO make without any input from user
         return SHOW_TIMERS
 
     elif user_input == "SHOW GRAPHS":
         context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text="Choose period for graphs",
-        reply_markup=telegramcalendar.create_calendar()
-        )  # TODO make without any input from user
-
+            chat_id=update.message.chat_id,
+            text="Choose period for graphs",
+            reply_markup=telegramcalendar.create_calendar()
+            )  # TODO make without any input from user
         return GRAPH_FOR_PERIOD
+
+    elif user_input == "Add or change personal data to better analytics":
+        context.bot.send_message(
+            chat_id=update.message.chat_id,
+            text="Enter your AGE:",
+            reply_markup=markup_remove
+            )
+        return AGE
+
+    else:
+        print('Incorrect input', user_input)
+        raise NameError('Incorrect input')
 
 
 def arm(update, context):
@@ -250,21 +265,25 @@ def pressure(update, context):
         username, systolic, diastolic, timestamp, date, arm
         )
 
-    text = (  #ADD RECOMENDATIONS
+    analytics = analysis_result(systolic, diastolic)
+
+    text = (
         '''
-        New pressure data added.
-        '''
+        New pressure data added. \n
+        %s
+        ''' % analytics
         )
 
     context.bot.send_message(
         chat_id=update.message.chat_id,
-        text=text
+        text=text,
+        reply_markup=start_markup
         )
 
     return START_BUTTON
 
 
-def calendar(update, context):
+def graph_for_period(update, context):
     """
     Take two dates from user input in calendar.
     send them to user,
@@ -294,7 +313,10 @@ def calendar(update, context):
 
         text = "What you'd like to do next?"
 
-        context.bot.send_message(chat_id=update.callback_query.message.chat_id, text=text, reply_markup=start_markup)
+        context.bot.send_message(
+            chat_id=update.callback_query.message.chat_id,
+            text=text,
+            reply_markup=start_markup)
 
         return START_BUTTON
 
@@ -311,13 +333,22 @@ def make_graph(update, context):
     user = context.user_data.get('user_name')
 
     pressure_data = select_data_from_postgresql(user)
-    date_generated = find_dates_in_period(first_date, last_date)
+    try:
+        date_generated = find_dates_in_period(first_date, last_date)
+    except NameError:
+        context.bot.send_message(
+                chat_id=update.callback_query.message.chat_id,
+                text="Sequence of days is broken",
+                reply_markup=start_markup
+                )
+        return START_BUTTON
+
     pressure_list = select_data_picked_by_dates(pressure_data, date_generated)
 
-    arms = ["r", "l"]
+    arms = ["l", "r"]
 
-    for arm in arms:
-        try:
+    try:  # TODO it falls if l-arm data is empty. Shouldn't
+        for arm in arms:
             arm_data = prepare_data_from_potgresql_to_graph(pressure_list, arm)
 
             graph = create_graph(arm_data)
@@ -326,13 +357,13 @@ def make_graph(update, context):
                 document=open(graph, 'rb')
             )
 
-        except ValueError:
-            context.bot.send_message(
-                chat_id=update.callback_query.message.chat_id,
-                text="There aren't any arm data per date",
-                reply_markup=start_markup
-                )
-            return START_BUTTON #не вызывает start_button функцию
+    except ValueError:
+        context.bot.send_message(
+            chat_id=update.callback_query.message.chat_id,
+            text="There aren't any arm data per date",
+            reply_markup=start_markup
+            )
+        return START_BUTTON
 
     if 'first_date' in context.user_data:
         del context.user_data['first_date']
@@ -388,8 +419,11 @@ def set_timer(update, context):
         alarm, timer, context=update.message.chat_id
         )
     context.chat_data[new_timer] = job
-    
-    update.message.reply_text('Timer successfully set!', reply_markup=start_markup)
+
+    update.message.reply_text(
+        'Timer successfully set!',
+        reply_markup=start_markup
+        )
 
     return START_BUTTON
 
@@ -421,8 +455,8 @@ def remove_timer(update, context):
             "Timer successfully stoped",
             reply_markup=start_markup
             )
-    #elif user would like to delete all the timers
-    # context.job_queue.stop() 
+    # elif user would like to delete all the timers
+    # context.job_queue.stop()
 
     else:
         update.message.reply_text(
@@ -441,18 +475,22 @@ def show_timers(update, context):
     if timers is not None:
         text = ""
         for time in timers:
-            text += "%s \n" %time
-        
+            text += "%s \n" % time
+
         context.bot.send_message(
-        chat_id=update.message.chat_id, text=text, reply_markup=start_markup
-        )
+            chat_id=update.message.chat_id,
+            text=text,
+            reply_markup=start_markup
+            )
 
     else:
         print('2')
         text = "There aren't any timers"
         context.bot.send_message(
-        chat_id=update.message.chat_id, text=text, reply_markup=start_markup
-        )
+            chat_id=update.message.chat_id,
+            text=text,
+            reply_markup=start_markup
+            )
 
     return START_BUTTON
 
@@ -465,7 +503,25 @@ def cancel(update, context):
     text = (
         "Bye! I hope we can talk again some day."
     )
-    context.bot.send_message(chat_id=update.message.chat_id, text=text, reply_markup=start_markup)
+    context.bot.send_message(
+        chat_id=update.message.chat_id,
+        text=text,
+        reply_markup=start_markup)
+
+    return START_BUTTON
+
+
+def skip(update, context):
+    """
+    close the conversation,
+    return START possition of the conversation handler
+    """
+    text = "Ok, you could do it later"
+    context.bot.send_message(
+        chat_id=update.message.chat_id,
+        text=text,
+        reply_markup=start_markup
+        )
 
     return START_BUTTON
 
@@ -493,7 +549,7 @@ def main():
 
             PRESSURE: [MessageHandler(Filters.text, pressure)],
 
-            GRAPH_FOR_PERIOD: [CallbackQueryHandler(calendar)],
+            GRAPH_FOR_PERIOD: [CallbackQueryHandler(graph_for_period)],
 
             SET_TIMER: [MessageHandler(Filters.text, set_timer)],
 
@@ -507,7 +563,7 @@ def main():
 
         fallbacks=[
             CommandHandler('cancel', cancel),
-            CommandHandler('set', take_time_for_timer)
+            CommandHandler('skip', skip)
             ]
     )
 
