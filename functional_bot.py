@@ -11,7 +11,7 @@ def make_list_for_arm(pressure_list, arm):
     from pressure_list makes list for "l" or "r" arm,
     then prepare them like list with lists (one per date)
     """
-    arm_list = [line for line in pressure_list if line[-1]==arm]
+    arm_list = [line for line in pressure_list if line[-1] == arm]
 
     pressure_list_new = []
     comparison_date = datetime.date(1, 1, 1)
@@ -50,8 +50,9 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
             systolic, diastolic = each_time[2], each_time[3]
             time = datetime.datetime.strftime(each_time[4], "%H:%M")
 
-            systolic_list, diastolic_list, date_list =  append_to_lists(
-                systolic_list, diastolic_list, date_list, systolic, diastolic, time
+            systolic_list, diastolic_list, date_list = append_to_lists(
+                systolic_list, diastolic_list,
+                date_list, systolic, diastolic, time
                 )
 
         return systolic_list, diastolic_list, date_list, arm
@@ -61,21 +62,26 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
 
         if len(day) == 1:
             systolic, diastolic = day[0][2], day[0][3]
+
             systolic_list, diastolic_list, date_list = append_to_lists(
-                systolic_list, diastolic_list, date_list, systolic, diastolic, date
+                systolic_list, diastolic_list,
+                date_list, systolic, diastolic, date
                 )
 
         if len(day) > 1:
             systolic, diastolic = find_biggest_value_per_day(day)
+
             systolic_list, diastolic_list, date_list = append_to_lists(
-                systolic_list, diastolic_list, date_list, systolic, diastolic, date
+                systolic_list, diastolic_list,
+                date_list, systolic, diastolic, date
                 )
 
     return systolic_list, diastolic_list, date_list, arm
 
 
 def append_to_lists(
-    systolic_list, diastolic_list, date_list, systolic, diastolic, date
+    systolic_list, diastolic_list, date_list,
+    systolic, diastolic, date
     ):
     """
     Append systolic, diastolic, date to similar lists
@@ -89,7 +95,7 @@ def append_to_lists(
 
 def find_biggest_value_per_day(day_data):
     """
-    Take pressure data per day and find 
+    Take pressure data per day and find
     biggest value.
     If some systolic and other systolic equal,
     compare by diastolic
@@ -163,7 +169,7 @@ def save_user_to_postgresql(
     cursor = connection.cursor()
     try:
         postgres_insert_users = """
-        INSERT INTO users 
+        INSERT INTO users
         (username, sex, age, weight, work)
         VALUES (%s, %s, %s, %s, %s)"""
         records_to_users = (
@@ -177,15 +183,15 @@ def save_user_to_postgresql(
 
     except psycopg2.errors.UniqueViolation:
         connection.rollback()
-        
+
         postgres_insert_users = """
-        UPDATE users SET 
+        UPDATE users SET
         sex=%s, age=%s, weight=%s, work=%s WHERE username=%s
         """
         records_to_users = (sex, age, weight, work, user_name)
-        cursor.execute(postgres_insert_users, records_to_users)  
+        cursor.execute(postgres_insert_users, records_to_users)
 
-    finally:   
+    finally:
         cursor.close()
         connection.commit()
         connection.close()
@@ -199,7 +205,7 @@ def find_dates_in_period(first_date, last_date):
     end_date = datetime.datetime.strptime(last_date, "%d.%m.%Y")
 
     if start_date == end_date:
-        return [start_date.strftime("%Y-%m-%d")] 
+        return [start_date.strftime("%Y-%m-%d")]
 
     elif end_date > start_date:
         end = end_date + datetime.timedelta(days=1)
@@ -287,13 +293,17 @@ def create_graph(arm_list):
         ax.grid(True)
 
     directory = os.path.dirname(os.path.abspath(__file__))
-    graph_name = os.path.join(directory, '%s_graph.png' %arm)
+    graph_name = os.path.join(directory, '%s_graph.png' % arm)
     savefig(graph_name)
 
-    return '%s_graph.png' %arm
+    return '%s_graph.png' % arm
 
 
 def marking_on_coordinate_axes(arm_list):
+    """
+    Take arm list and makes systolic and diastolic lists
+    for marking on coordinate axes
+    """
     if arm_list[3] == "r":
         arm = "Right arm"
     elif arm_list[3] == "l":
@@ -305,3 +315,79 @@ def marking_on_coordinate_axes(arm_list):
     list_diastolic_pressure = list(map(int, arm_list[1]))
 
     return arm, list_systolic_pressure, list_diastolic_pressure
+
+
+def analysis_pressure_value(systolic, diastolic):
+    """
+    take systolic and diastolic and makes recomendation
+    based on values
+    """
+    systolic, diastolic = int(systolic), int(diastolic)
+
+    if systolic > 100 and systolic < 140:
+        return "Good"
+
+    elif systolic >= 140 and systolic <= 150:
+        return '''
+            Not good.
+            You'd better lay down and take medecine
+            '''
+
+    elif systolic > 150:
+        return '''
+            Dangerous!
+            Call 911 or 112 in Russia. Lay down and take medecine
+            '''
+
+    elif systolic <= 100:
+        return '''
+            Not good.
+            What about a cup of strong tea or coffee?
+            '''
+
+
+def analysis_pressure_difference(systolic, diastolic):
+    """
+    take systolic and diastolic values
+    find difference between them and make recomendations
+    """
+
+    systolic, diastolic = int(systolic), int(diastolic)
+    difference = systolic - diastolic
+
+    if difference < 50:
+        return "Good"
+
+    elif difference >= 50:
+        text = ('''
+            You shold go to cardiologist,
+            because your difference between systolic
+            and diastolic pressure is dangerous
+            ''')
+        return text
+
+
+def analysis_result(systolic, diastolic):
+    value_analys = analysis_pressure_value(systolic, diastolic)
+    difference_analys = analysis_pressure_difference(systolic, diastolic)
+
+    if value_analys == "Good" and difference_analys == "Good":
+        return "Great values!"
+
+    elif difference_analys == "Good" and difference_analys != "Good":
+        return value_analys
+
+    elif difference_analys == "Good" and difference_analys != "Good":
+        return difference_analys
+
+    elif difference_analys != "Good" and difference_analys != "Good":
+        text = "%s  %s" % (value_analys, difference_analys)
+        return text
+
+
+def main():
+    pass
+
+
+if __name__ == "__main__":
+    main()
