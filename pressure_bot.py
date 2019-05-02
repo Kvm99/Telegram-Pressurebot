@@ -55,7 +55,6 @@ def greeting(update, context):
     """
     start with age input
     """
-    print(context.user_data)
     user_text = update.message
     text = (
         '''
@@ -219,7 +218,6 @@ def start_button(update, context):
         return AGE
 
     else:
-        print('Incorrect input', user_input)
         raise NameError('Incorrect input')
 
 

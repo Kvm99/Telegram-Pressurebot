@@ -18,7 +18,7 @@ def make_list_for_arm(pressure_list, arm):
     new_list = []
 
     for line in arm_list:
-        date = line[-2]
+        date = line[4].date()
 
         if date > comparison_date:
             new_list = []
@@ -58,7 +58,7 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
         return systolic_list, diastolic_list, date_list, arm
 
     for day in pressure_list_new:
-        date = datetime.datetime.strftime(day[0][5], "%Y-%m-%d")
+        date = datetime.datetime.strftime(day[0][4], "%Y-%m-%d")
 
         if len(day) == 1:
             systolic, diastolic = day[0][2], day[0][3]
@@ -140,16 +140,15 @@ def save_pressure_to_postgresql(
     finally:
         postgres_insert_pressure = """
         INSERT INTO pressure (
-            username, systolic, diastolic, timestamp, date, arm
+            username, systolic, diastolic, timestamp, arm
             )
-        VALUES (%s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s)
         """
         records_to_pressure = (
             username,
             systolic,
             diastolic,
             timestamp,
-            date,
             arm
             )  # TODO change timestamp and data in the table
 
@@ -249,7 +248,7 @@ def select_data_picked_by_dates(pressure_data, date_generated):
         for date in date_generated:
             date_format = datetime.datetime.strptime(date, "%Y-%m-%d").date()
 
-            if date_format == line[5]:
+            if date_format == line[4].date():
                 pressure_list.append(line)
 
     return pressure_list
@@ -368,6 +367,9 @@ def analysis_pressure_difference(systolic, diastolic):
 
 
 def analysis_result(systolic, diastolic):
+    """
+    prepare result of analytic to bot
+    """
     value_analys = analysis_pressure_value(systolic, diastolic)
     difference_analys = analysis_pressure_difference(systolic, diastolic)
 
@@ -380,7 +382,7 @@ def analysis_result(systolic, diastolic):
     elif difference_analys == "Good" and difference_analys != "Good":
         return difference_analys
 
-    elif difference_analys != "Good" and difference_analys != "Good":
+    elif value_analys != "Good" and difference_analys != "Good":
         text = "%s  %s" % (value_analys, difference_analys)
         return text
 

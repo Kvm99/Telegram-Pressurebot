@@ -28,7 +28,6 @@ def create_tables():
             systolic VARCHAR(3) NOT NULL,
             diastolic VARCHAR(3) NOT NULL,
             timestamp timestamptz NOT NULL,
-            date DATE,
             arm VARCHAR(50) NOT NULL,
             FOREIGN KEY (username) REFERENCES users
         );
