@@ -162,9 +162,10 @@ def save_user_to_postgresql(
     connection = config()
     cursor = connection.cursor()
     try:
-        postgres_insert_users = """INSERT INTO users (
-        username, sex, age, weight, work
-        ) VALUES (%s, %s, %s, %s, %s)"""
+        postgres_insert_users = """
+        INSERT INTO users 
+        (username, sex, age, weight, work)
+        VALUES (%s, %s, %s, %s, %s)"""
         records_to_users = (
             user_name,
             sex,
@@ -176,16 +177,13 @@ def save_user_to_postgresql(
 
     except psycopg2.errors.UniqueViolation:
         connection.rollback()
-        cursor.execute(
-            """
-            UPDATE users SET 
-            sex={}, age={}, weight={}, work={} WHERE username LIKE {}
-            """.format(sex, age, weight, work, user_name)
-            )
-
-        #VALUES (%s, %s, %s, %s, %s)"""
-        #values = (sex, age, weight, work, username)
-        #cursor.execute(add_sex, values)
+        
+        postgres_insert_users = """
+        UPDATE users SET 
+        sex=%s, age=%s, weight=%s, work=%s WHERE username=%s
+        """
+        records_to_users = (sex, age, weight, work, user_name)
+        cursor.execute(postgres_insert_users, records_to_users)  
 
     finally:   
         cursor.close()
