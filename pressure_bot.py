@@ -35,7 +35,9 @@ logging.basicConfig(
 START, AGE, SEX, WEIGHT, ADD_PRESSURE, ARM, PRESSURE, GRAPH_FOR_PERIOD, \
 SET_TIMER, REMOVE_TIMER, START_BUTTON, SHOW_TIMERS = range(12)
 
-start_button = [["START", "SET TIMER", "REMOVE TIMER", "SHOW EXISTED TIMERS"]]
+start_button = [["ADD PRESSURE", "SHOW GRAPHS"],
+["SET TIMER", "REMOVE TIMER", "SHOW TIMERS"]
+]
 start_markup = ReplyKeyboardMarkup(start_button, one_time_keyboard=True)
 sex_buttons = [["male", "female", "other"]]
 sex_markup = ReplyKeyboardMarkup(sex_buttons, one_time_keyboard=True)
@@ -188,13 +190,22 @@ def start_button(update, context):
         )
         return REMOVE_TIMER
 
-    elif user_input == "SHOW EXISTED TIMERS":
+    elif user_input == "SHOW TIMERS":
         context.bot.send_message(
         chat_id=update.message.chat_id,
-        text="Press any button",
+        text="Press any button to continue",
         reply_markup=markup_remove
         )  # TODO make without any input from user
         return SHOW_TIMERS
+
+    elif user_input == "SHOW GRAPHS":
+        context.bot.send_message(
+        chat_id=update.message.chat_id,
+        text="Choose period for graphs",
+        reply_markup=telegramcalendar.create_calendar()
+        )  # TODO make without any input from user
+
+        return GRAPH_FOR_PERIOD
 
 
 def arm(update, context):
@@ -239,19 +250,18 @@ def pressure(update, context):
         username, systolic, diastolic, timestamp, date, arm
         )
 
-    text = (
-        '''I see.
-        If you'd like a graph, please choose period,
-        if no, press /cancel'''
+    text = (  #ADD RECOMENDATIONS
+        '''
+        New pressure data added.
+        '''
         )
 
     context.bot.send_message(
         chat_id=update.message.chat_id,
-        text=text,
-        reply_markup=telegramcalendar.create_calendar()
+        text=text
         )
 
-    return GRAPH_FOR_PERIOD
+    return START_BUTTON
 
 
 def calendar(update, context):
