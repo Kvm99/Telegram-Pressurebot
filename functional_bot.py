@@ -8,10 +8,10 @@ from db_settings import config
 
 def make_list_for_arm(pressure_list, arm):
     """
-    from pressure_list makes list for "l" or "r" arm,
+    from pressure_list makes list for "Left" or "Right" arm,
     then prepare them like list with lists (one per date)
     """
-    arm_list = [line for line in pressure_list if line[-1] == arm]
+    arm_list = [line for line in pressure_list if line[-2] == arm]
 
     pressure_list_new = []
     comparison_date = datetime.date(1, 1, 1)
@@ -27,7 +27,7 @@ def make_list_for_arm(pressure_list, arm):
             comparison_date = date
         else:
             new_list.append(line)
-
+    print(pressure_list_new)
     return pressure_list_new
 
 
@@ -40,13 +40,26 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
     """
     pressure_list_new = make_list_for_arm(pressure_list, arm)
 
-    systolic_list, diastolic_list, date_list = [], [], []
-
     if len(pressure_list_new) == 0:
         raise ValueError("There aren't any data per date")
 
     elif len(pressure_list_new) == 1:
-        for each_time in pressure_list_new[0]:
+        return prepare_data_for_one_day(pressure_list_new, arm)
+
+    elif len(pressure_list_new) > 1:
+        return prepare_data_for_many_days(pressure_list_new, arm)
+
+
+
+def prepare_data_for_one_day(pressure_list_new, arm):
+    """
+    if there are only one day data in pressure list,
+    take first and only one list from pressure_list_new
+    and makes lists systolic_list, diastolic_list, date_list, arm
+    """
+    systolic_list, diastolic_list, date_list = [], [], []
+
+    for each_time in pressure_list_new[0]:
             systolic, diastolic = each_time[2], each_time[3]
             time = datetime.datetime.strftime(each_time[4], "%H:%M")
 
@@ -55,7 +68,18 @@ def prepare_data_from_potgresql_to_graph(pressure_list, arm):
                 date_list, systolic, diastolic, time
                 )
 
-        return systolic_list, diastolic_list, date_list, arm
+    return systolic_list, diastolic_list, date_list, arm
+
+
+def prepare_data_for_many_days(pressure_list_new, arm):
+    """
+    if there are a lot of day's data in list,
+    take one by one and makes lists:
+    systolic_list, diastolic_list, date_list, arm.
+    When there are a lot of values in a day, 
+    find biggest one
+    """
+    systolic_list, diastolic_list, date_list = [], [], []
 
     for day in pressure_list_new:
         date = datetime.datetime.strftime(day[0][4], "%Y-%m-%d")
@@ -94,6 +118,7 @@ def append_to_lists(
 
 
 def find_biggest_value_per_day(day_data):
+    # TODO make less inclusion
     """
     Take pressure data per day and find
     biggest value.
@@ -123,7 +148,7 @@ def find_biggest_value_per_day(day_data):
 
 
 def save_pressure_to_postgresql(
-        username, systolic, diastolic, timestamp, date, arm
+        username, systolic, diastolic, timestamp, arm, pulse=None
         ):
     """
     save username(unique), systolic, diastolic, timestamp, date, arm
@@ -140,17 +165,18 @@ def save_pressure_to_postgresql(
     finally:
         postgres_insert_pressure = """
         INSERT INTO pressure (
-            username, systolic, diastolic, timestamp, arm
+            username, systolic, diastolic, timestamp, arm, pulse
             )
-        VALUES (%s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s)
         """
         records_to_pressure = (
             username,
             systolic,
             diastolic,
             timestamp,
-            arm
-            )  # TODO change timestamp and data in the table
+            arm,
+            pulse
+            )
 
         cursor.execute(postgres_insert_pressure, records_to_pressure)
         cursor.close()
@@ -196,75 +222,32 @@ def save_user_to_postgresql(
         connection.close()
 
 
-def find_dates_in_period(first_date, last_date):
-    """
-    find all dates between first date and last date(included the last)
-    """
-    start_date = datetime.datetime.strptime(first_date, "%d.%m.%Y")
-    end_date = datetime.datetime.strptime(last_date, "%d.%m.%Y")
-
-    if start_date == end_date:
-        return [start_date.strftime("%Y-%m-%d")]
-
-    elif end_date > start_date:
-        end = end_date + datetime.timedelta(days=1)
-
-        date_generated = [
-            (start_date + datetime.timedelta(days=x)).strftime("%Y-%m-%d")
-            for x in range(0, (end-start_date).days)
-            ]
-
-        return date_generated
-
-    else:
-        raise NameError('Sequence of days is broken')
-
-
-def select_data_from_postgresql(user):
+def select_data_from_postgresql(user, first_date, last_date):
     """
     select data for the user and time period
     """
     connection = config()
     cursor = connection.cursor()
-    postgreSQL_select_query = """SELECT * FROM pressure WHERE username = %s;"""
-    username = user
-    cursor.execute(postgreSQL_select_query, [username])
+    postgreSQL_select_query = """
+            SELECT * FROM pressure WHERE username = %s
+            AND timestamp >= %s AND timestamp <= %s;
+        """
+    details = [user, first_date, last_date]
+    cursor.execute(postgreSQL_select_query, details)
 
     pressure_data = cursor.fetchall()
     cursor.close()
     connection.close()
 
-    return pressure_data
+    return pressure_data  # TODO make structure unchangeable
 
 
-def select_data_picked_by_dates(pressure_data, date_generated):
-    """
-    take all selected date from DB
-    and find only for requested dates
-    """
-    pressure_list = []
-    for line in pressure_data:
+def if_dates_consecutive(first_date, last_date):
+    datetime_first_date = datetime.datetime.strptime(first_date, "%Y-%m-%d")
+    datetime_last_date = datetime.datetime.strptime(last_date, "%Y-%m-%d")
 
-        for date in date_generated:
-            date_format = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-
-            if date_format == line[4].date():
-                pressure_list.append(line)
-
-    return pressure_list
-
-
-def arm_corrector(user_input_arm):
-    """
-    receive user input data (right or left arm)
-    and convert them into needed type ('r' or 'l')
-    """
-    if user_input_arm == "Right":
-        return "r"
-    if user_input_arm == "Left":
-        return "l"
-    if user_input_arm != "Left" and user_input_arm != "Right":
-        raise NameError('incorrect arm input')
+    if datetime_last_date >= datetime_first_date:
+        return True
 
 
 def create_graph(arm_list):
@@ -275,6 +258,7 @@ def create_graph(arm_list):
     """
     plot.close("all")
     figsize = (8, 4)
+    plot.style.use('seaborn-dark')
     fig = plot.figure(figsize=figsize, facecolor='pink', frameon=True)
 
     ax = fig.add_subplot(111)
@@ -282,7 +266,7 @@ def create_graph(arm_list):
     arm, list_systolic_pressure, list_diastolic_pressure = \
         marking_on_coordinate_axes(arm_list)
 
-    plot.title(arm)
+    plot.title('%s arm graph' % arm)
     dates = arm_list[2]
     ax.set_xticklabels(dates, rotation=10)
     ax.plot(dates, list_systolic_pressure)
@@ -303,11 +287,9 @@ def marking_on_coordinate_axes(arm_list):
     Take arm list and makes systolic and diastolic lists
     for marking on coordinate axes
     """
-    if arm_list[3] == "r":
-        arm = "Right arm"
-    elif arm_list[3] == "l":
-        arm = "Left arm"
-    else:
+    arm = arm_list[3]
+
+    if arm != 'Right' and arm != 'Left':
         raise ValueError("Incorrect arm name")
 
     list_systolic_pressure = list(map(int, arm_list[0]))
@@ -367,6 +349,7 @@ def analysis_pressure_difference(systolic, diastolic):
 
 
 def analysis_result(systolic, diastolic):
+    # TODO make less inclusion
     """
     prepare result of analytic to bot
     """
@@ -376,11 +359,11 @@ def analysis_result(systolic, diastolic):
     if value_analys == "Good" and difference_analys == "Good":
         return "Great values!"
 
-    elif difference_analys == "Good" and difference_analys != "Good":
-        return value_analys
-
-    elif difference_analys == "Good" and difference_analys != "Good":
+    elif value_analys == "Good" and difference_analys != "Good":
         return difference_analys
+
+    elif difference_analys == "Good" and value_analys != "Good":
+        return value_analys
 
     elif value_analys != "Good" and difference_analys != "Good":
         text = "%s  %s" % (value_analys, difference_analys)
