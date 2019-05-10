@@ -8,3 +8,6 @@ myvenv/
 bot.log
 first_version/
 db_settings.py
+Left_graph.png
+Right_graph.png
+__init__.py
