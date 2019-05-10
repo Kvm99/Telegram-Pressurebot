@@ -27,7 +27,7 @@ def make_list_for_arm(pressure_list, arm):
             comparison_date = date
         else:
             new_list.append(line)
-    print(pressure_list_new)
+
     return pressure_list_new
 
 
@@ -60,14 +60,13 @@ def prepare_data_for_one_day(pressure_list_new, arm):
     systolic_list, diastolic_list, date_list = [], [], []
 
     for each_time in pressure_list_new[0]:
-            systolic, diastolic = each_time[2], each_time[3]
-            time = datetime.datetime.strftime(each_time[4], "%H:%M")
+        systolic, diastolic = each_time[2], each_time[3]
+        time = datetime.datetime.strftime(each_time[4], "%H:%M")
 
-            systolic_list, diastolic_list, date_list = append_to_lists(
-                systolic_list, diastolic_list,
-                date_list, systolic, diastolic, time
-                )
-
+        systolic_list, diastolic_list, date_list = append_to_lists(
+            systolic_list, diastolic_list,
+            date_list, systolic, diastolic, time
+            )
     return systolic_list, diastolic_list, date_list, arm
 
 
@@ -118,31 +117,14 @@ def append_to_lists(
 
 
 def find_biggest_value_per_day(day_data):
-    # TODO make less inclusion
     """
     Take pressure data per day and find
     biggest value.
     If some systolic and other systolic equal,
     compare by diastolic
     """
-    biggest_value = [0, 0]
-    for line in day_data:
-        systolic, diastolic = int(line[2]), int(line[3])
-
-        if systolic > biggest_value[0]:
-            biggest_value = [systolic, diastolic]
-
-        elif systolic == biggest_value[0]:
-            if diastolic > biggest_value[1]:
-                biggest_value = [systolic, diastolic]
-
-            else:
-                continue
-
-        elif systolic < biggest_value[0]:
-            continue
-
-    systolic, diastolic = str(biggest_value[0]), str(biggest_value[1])
+    values = [(data[2], data[3]) for data in day_data]
+    systolic, diastolic = max(values)
 
     return systolic, diastolic
 
@@ -367,6 +349,7 @@ def analysis_result(systolic, diastolic):
 
     elif value_analys != "Good" and difference_analys != "Good":
         text = "%s  %s" % (value_analys, difference_analys)
+        print(text)
         return text
 
 
