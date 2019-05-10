@@ -17,11 +17,9 @@ from functional_bot import (
     prepare_data_from_potgresql_to_graph,
     save_user_to_postgresql,
     save_pressure_to_postgresql,
-    arm_corrector,
     create_graph,
-    select_data_picked_by_dates,
-    find_dates_in_period,
-    analysis_result
+    analysis_result,
+    if_dates_consecutive
     )
 
 from bot_settings import TOKEN, PROXY
@@ -34,7 +32,7 @@ logging.basicConfig(
     )
 
 START, AGE, SEX, WEIGHT, ADD_PRESSURE, ARM, PRESSURE, GRAPH_FOR_PERIOD, \
-    SET_TIMER, REMOVE_TIMER, START_BUTTON, SHOW_TIMERS = range(12)
+    SET_TIMER, REMOVE_TIMER, START_BUTTON = range(11)  # TODO change stile
 
 start_button = [
     ["ADD PRESSURE", "SHOW GRAPHS"],
@@ -194,12 +192,7 @@ def start_button(update, context):
         return REMOVE_TIMER
 
     elif user_input == "SHOW TIMERS":
-        context.bot.send_message(
-            chat_id=update.message.chat_id,
-            text="Press any button to continue",
-            reply_markup=markup_remove
-            )  # TODO make without any input from user
-        return SHOW_TIMERS
+        return show_timers(update, context)
 
     elif user_input == "SHOW GRAPHS":
         context.bot.send_message(
@@ -230,7 +223,11 @@ def arm(update, context):
     user_input_arm = update.message.text
     context.user_data['arm'] = user_input_arm
     text = (
-        "Ok, please enter your current pressure data: "
+        '''
+        Ok, enter pressure data and pulse
+        like 120/70 82 or
+        systolic diastolic pulse
+        '''
         )
     context.bot.send_message(
         chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
@@ -248,20 +245,22 @@ def pressure(update, context):
     username, systolic, diastolic, timestamp, date, arm
     Return calendar
     """
-    user_input_arm = context.user_data['arm']
-    arm = arm_corrector(user_input_arm)
-    # TODO change format of saving arm-input
-
-    user_input_pressure = update.message.text
-    list_pressure = re.split(r'[\^\,\.:;\\/]', user_input_pressure)
-    systolic, diastolic = list_pressure[0], list_pressure[1]
-    date = datetime.datetime.now().date()
+    arm = context.user_data.get('arm')
     timestamp = datetime.datetime.now()
     username = context.user_data.get('user_name')
+    user_input_pressure = update.message.text
+    list_pressure = re.split(r'[\^\,\.:;\\/\s]', user_input_pressure)
 
-    save_pressure_to_postgresql(
-        username, systolic, diastolic, timestamp, date, arm
-        )
+    try:
+        systolic, diastolic, pulse = list_pressure[0], list_pressure[1], list_pressure[2]
+        save_pressure_to_postgresql(
+            username, systolic, diastolic, timestamp, arm, pulse
+            )
+    except (ValueError, IndexError):
+        systolic, diastolic = list_pressure[0], list_pressure[1]
+        save_pressure_to_postgresql(
+            username, systolic, diastolic, timestamp, arm
+            )
 
     analytics = analysis_result(systolic, diastolic)
 
@@ -293,7 +292,7 @@ def graph_for_period(update, context):
     selected, date = telegramcalendar.process_calendar_selection(
         update, context
         )
-    str_date = date.strftime("%d.%m.%Y")
+    str_date = date.strftime("%Y-%m-%d")
 
     if selected:
         context.bot.send_message(
@@ -316,6 +315,12 @@ def graph_for_period(update, context):
             text=text,
             reply_markup=start_markup)
 
+        if 'first_date' in context.user_data:
+            del context.user_data['first_date']
+
+        if 'second_date' in context.user_data:
+            del context.user_data['second_date']
+
         return START_BUTTON
 
 
@@ -330,10 +335,14 @@ def make_graph(update, context):
     last_date = context.user_data.get('second_date')
     user = context.user_data.get('user_name')
 
-    pressure_data = select_data_from_postgresql(user)
-    try:
-        date_generated = find_dates_in_period(first_date, last_date)
-    except NameError:
+    end_date = datetime.datetime.strptime(last_date, "%Y-%m-%d")
+    end = end_date + datetime.timedelta(days=1)
+    str_end_date = end.strftime("%Y-%m-%d")
+
+    if if_dates_consecutive(first_date, last_date) is True:
+        pressure_data = select_data_from_postgresql(user, first_date, str_end_date)
+
+    else:
         context.bot.send_message(
                 chat_id=update.callback_query.message.chat_id,
                 text="Sequence of days is broken",
@@ -341,33 +350,24 @@ def make_graph(update, context):
                 )
         return START_BUTTON
 
-    pressure_list = select_data_picked_by_dates(pressure_data, date_generated)
+    arms = ["Left", "Right"]
 
-    arms = ["l", "r"]
-
-    try:  # TODO it falls if l-arm data is empty. Shouldn't
-        for arm in arms:
-            arm_data = prepare_data_from_potgresql_to_graph(pressure_list, arm)
-
+    for arm in arms:
+        try:
+            arm_data = prepare_data_from_potgresql_to_graph(pressure_data, arm)
             graph = create_graph(arm_data)
             context.bot.send_document(
                 chat_id=update.callback_query.message.chat_id,
                 document=open(graph, 'rb')
             )
 
-    except ValueError:
-        context.bot.send_message(
-            chat_id=update.callback_query.message.chat_id,
-            text="There aren't any arm data per date",
-            reply_markup=start_markup
-            )
-        return START_BUTTON
-
-    if 'first_date' in context.user_data:
-        del context.user_data['first_date']
-
-    if 'second_date' in context.user_data:
-        del context.user_data['second_date']
+        except ValueError:
+            context.bot.send_message(
+                chat_id=update.callback_query.message.chat_id,
+                text="There aren't any %s arm data per dates" % arm,
+                reply_markup=start_markup
+                )
+    return START_BUTTON
 
 
 def take_time_for_timer(update, context):
@@ -406,7 +406,7 @@ def set_timer(update, context):
     timer_list = []
 
     if 'alarm_time' in context.user_data:
-        timer_list = context.user_data['alarm_time']
+        timer_list = context.user_data.get('alarm_time')
         timer_list.append(timer)
 
     else:
@@ -482,7 +482,6 @@ def show_timers(update, context):
             )
 
     else:
-        print('2')
         text = "There aren't any timers"
         context.bot.send_message(
             chat_id=update.message.chat_id,
@@ -552,8 +551,6 @@ def main():
             SET_TIMER: [MessageHandler(Filters.text, set_timer)],
 
             REMOVE_TIMER: [MessageHandler(Filters.text, remove_timer)],
-
-            SHOW_TIMERS: [MessageHandler(Filters.text, show_timers)],
 
             START_BUTTON: [MessageHandler(Filters.text, start_button)]
 
