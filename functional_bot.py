@@ -3,7 +3,6 @@ import psycopg2
 import matplotlib.pyplot as plot
 import os
 from matplotlib.pyplot import savefig
-#from db_settings import config
 from settings import config
 
 

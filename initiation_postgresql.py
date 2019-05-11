@@ -1,5 +1,5 @@
 import psycopg2
-from db_settings import config
+from settings import config
 
 
 def create_tables():
