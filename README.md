@@ -30,5 +30,6 @@ This project is licensed under BSD-3 license. This license allows unlimited redi
 
 ## Contacts
 -------------
-[Facebook](https://www.facebook.com/maria.kuznetsova.1048)
+[Facebook]<https://www.facebook.com/maria.kuznetsova.1048>
+
 [Email] <mari.kuznecova90@gmail.com>
