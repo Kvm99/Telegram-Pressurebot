@@ -22,7 +22,8 @@ from functional_bot import (
     if_dates_consecutive
     )
 
-from bot_settings import TOKEN, PROXY
+#from bot_settings import TOKEN, PROXY
+from settings import TOKEN, PROXY
 
 
 logging.basicConfig(

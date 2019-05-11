@@ -1,4 +1,4 @@
-bot_settings.py
+settings.py
 /env
 Right arm_graph.png
 Left arm_graph.png
@@ -7,7 +7,6 @@ __pycache__/
 myvenv/
 bot.log
 first_version/
-db_settings.py
 Left_graph.png
 Right_graph.png
 __init__.py
