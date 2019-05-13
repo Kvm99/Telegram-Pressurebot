@@ -351,11 +351,3 @@ def analysis_result(systolic, diastolic):
         text = "%s  %s" % (value_analys, difference_analys)
         print(text)
         return text
-
-
-def main():
-    pass
-
-
-if __name__ == "__main__":
-    main()
