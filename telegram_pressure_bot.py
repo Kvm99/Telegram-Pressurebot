@@ -125,7 +125,7 @@ def weight(update, context):
         chat_id=update.message.chat_id, text=text, reply_markup=work_markup
         )
 
-    return ADD_PRESSURE
+    return START_BUTTON
 
 
 def add_pressure(update, context):
@@ -558,7 +558,8 @@ def main():
 
         fallbacks=[
             CommandHandler('cancel', cancel),
-            CommandHandler('skip', skip)
+            CommandHandler('skip', skip),
+            CommandHandler('start', greeting)
             ]
     )
 
