@@ -125,7 +125,7 @@ def weight(update, context):
         chat_id=update.message.chat_id, text=text, reply_markup=work_markup
         )
 
-    return START_BUTTON
+    return ADD_PRESSURE
 
 
 def add_pressure(update, context):
@@ -151,6 +151,8 @@ def add_pressure(update, context):
         Let's save your pressure data.
 
         Which arm have you used?
+
+        send /skip to go to menu
 
         '''
         )
