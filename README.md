@@ -1,4 +1,4 @@
-# Telegram Arterial pressure bot. Version 1.0 ![](art-pressure.png=250x)
+# Telegram Arterial pressure bot. Version 1.0 ![](art-pressure.png=350x)
 ## @ArtPressure_bot
 -------------
 Bot which collect your pressure data and makes graphs.
