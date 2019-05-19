@@ -318,7 +318,7 @@ def analysis_pressure_difference(systolic, diastolic):
     systolic, diastolic = int(systolic), int(diastolic)
     difference = systolic - diastolic
 
-    if difference < 50:
+    if difference < 65:
         return "Good"
 
     elif difference >= 65:
