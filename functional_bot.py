@@ -321,7 +321,7 @@ def analysis_pressure_difference(systolic, diastolic):
     if difference < 50:
         return "Good"
 
-    elif difference >= 50:
+    elif difference >= 65:
         text = ('''
             You shold go to cardiologist,
             because your difference between systolic
@@ -349,5 +349,4 @@ def analysis_result(systolic, diastolic):
 
     elif value_analys != "Good" and difference_analys != "Good":
         text = "%s  %s" % (value_analys, difference_analys)
-        print(text)
         return text

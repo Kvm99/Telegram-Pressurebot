@@ -34,24 +34,28 @@ logging.basicConfig(
 START, AGE, SEX, WEIGHT, ADD_PRESSURE, ARM, PRESSURE, GRAPH_FOR_PERIOD, \
     SET_TIMER, REMOVE_TIMER, START_BUTTON = range(11)  # TODO change stile
 
-start_button = [
+start_buttons = [
     ["ADD PRESSURE", "SHOW GRAPHS"],
     ["SET TIMER", "REMOVE TIMER", "SHOW TIMERS"],
     ["Add or change personal data to better analytics"]
     ]
-start_markup = ReplyKeyboardMarkup(start_button, one_time_keyboard=True)
+start_markup = ReplyKeyboardMarkup(start_buttons, one_time_keyboard=True)
+
 sex_buttons = [["male", "female", "other"]]
 sex_markup = ReplyKeyboardMarkup(sex_buttons, one_time_keyboard=True)
+
 arm_buttons = [["Right", "Left"]]
 arms_markup = ReplyKeyboardMarkup(arm_buttons, one_time_keyboard=True)
+
 work_buttons = [["Active", "Sitting", "Combine"]]
 work_markup = ReplyKeyboardMarkup(work_buttons, one_time_keyboard=True)
+
 markup_remove = ReplyKeyboardRemove(selective=False)
 
 
 def greeting(update, context):
     """
-    start with age input
+    greeting and ask for age input
     """
     user_text = update.message
     text = (
@@ -201,7 +205,7 @@ def start_button(update, context):
             chat_id=update.message.chat_id,
             text="Choose period for graphs",
             reply_markup=telegramcalendar.create_calendar()
-            )  # TODO make without any input from user
+            )
         return GRAPH_FOR_PERIOD
 
     elif user_input == "Add or change personal data to better analytics":
@@ -248,9 +252,10 @@ def pressure(update, context):
     Return calendar
     """
     arm = context.user_data.get('arm')
-    timestamp = datetime.datetime.now()
     username = context.user_data.get('user_name')
     user_input_pressure = update.message.text
+
+    timestamp = datetime.datetime.now()
     list_pressure = re.split(r'[\^\,\.:;\\/\s]', user_input_pressure)
 
     try:
