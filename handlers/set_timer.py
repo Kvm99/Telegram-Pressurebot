@@ -1,3 +1,9 @@
+import datetime
+from buttons import start_markup
+from states import States
+from helpers.timers import alarm
+
+
 def set_timer(update, context):
     """
     take new value for timer,
@@ -26,4 +32,4 @@ def set_timer(update, context):
         reply_markup=start_markup
         )
 
-    return START_BUTTON
+    return States.START_BUTTON

@@ -1,3 +1,7 @@
+from buttons import markup_remove
+from states import States
+
+
 def arm(update, context):
     """
     ask user pressure data,
@@ -17,4 +21,4 @@ def arm(update, context):
         chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
         )
 
-    return PRESSURE
+    return States.PRESSURE

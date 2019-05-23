@@ -1,3 +1,6 @@
+from buttons import work_markup
+from states import States
+
 def weight(update, context):
     """
     save weight into context.user_data,
@@ -12,4 +15,4 @@ def weight(update, context):
         chat_id=update.message.chat_id, text=text, reply_markup=work_markup
         )
 
-    return ADD_PRESSURE
+    return States.ADD_PRESSURE

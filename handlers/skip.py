@@ -1,3 +1,6 @@
+from buttons import start_markup
+from states import States
+
 def skip(update, context):
     """
     close the conversation,
@@ -10,4 +13,4 @@ def skip(update, context):
         reply_markup=start_markup
         )
 
-    return START_BUTTON
+    return States.START_BUTTON

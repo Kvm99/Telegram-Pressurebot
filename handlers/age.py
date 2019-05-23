@@ -1,3 +1,7 @@
+from buttons import sex_markup
+from states import States
+
+
 def age(update, context):
     """
     save age into context.user_data,
@@ -13,4 +17,4 @@ def age(update, context):
         chat_id=update.message.chat_id, text=text, reply_markup=sex_markup
         )
 
-    return SEX
+    return States.SEX

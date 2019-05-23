@@ -1,3 +1,6 @@
+from buttons import markup_remove
+from states import States
+
 def greeting(update, context):
     """
     greeting and ask for age input
@@ -23,4 +26,4 @@ def greeting(update, context):
         chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
         )
 
-    return AGE
+    return States.AGE

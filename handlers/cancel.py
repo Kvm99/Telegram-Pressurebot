@@ -1,3 +1,6 @@
+from buttons import start_markup
+from states import States
+
 def cancel(update, context):
     """
     close the conversation,
@@ -11,4 +14,4 @@ def cancel(update, context):
         text=text,
         reply_markup=start_markup)
 
-    return START_BUTTON
+    return States.START_BUTTON

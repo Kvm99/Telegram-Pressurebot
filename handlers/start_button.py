@@ -1,3 +1,8 @@
+from helpers.timers import show_timers
+from buttons import arms_markup, markup_remove
+from states import States
+import telegramcalendar
+
 def start_button(update, context):
     user_input = update.message.text
 
@@ -7,7 +12,7 @@ def start_button(update, context):
             text="Which arm have you used?",
             reply_markup=arms_markup
             )
-        return ARM
+        return States.ARM
 
     elif user_input == "SET TIMER":
         context.bot.send_message(
@@ -15,7 +20,7 @@ def start_button(update, context):
             text="Enter time to reminder, like 21:14",
             reply_markup=markup_remove
             )
-        return SET_TIMER
+        return States.SET_TIMER
 
     elif user_input == "REMOVE TIMER":
         context.bot.send_message(
@@ -23,7 +28,7 @@ def start_button(update, context):
             text="Which timer you'd like to stop? Enter like 20:18",
             reply_markup=markup_remove
             )
-        return REMOVE_TIMER
+        return States.REMOVE_TIMER
 
     elif user_input == "SHOW TIMERS":
         return show_timers(update, context)
@@ -34,7 +39,7 @@ def start_button(update, context):
             text="Choose period for graphs",
             reply_markup=telegramcalendar.create_calendar()
             )
-        return GRAPH_FOR_PERIOD
+        return States.GRAPH_FOR_PERIOD
 
     elif user_input == "Add or change personal data to better analytics":
         context.bot.send_message(
@@ -42,7 +47,7 @@ def start_button(update, context):
             text="Enter your AGE:",
             reply_markup=markup_remove
             )
-        return AGE
+        return States.AGE
 
     else:
         raise NameError('Incorrect input')

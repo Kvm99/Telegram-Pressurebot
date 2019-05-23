@@ -1,3 +1,8 @@
+import datetime
+from buttons import start_markup
+from states import States
+
+
 def remove_timer(update, context):
     """
     remove timer in the job queue,
@@ -34,4 +39,4 @@ def remove_timer(update, context):
             reply_markup=start_markup
             )
 
-    return START_BUTTON
+    return States.START_BUTTON

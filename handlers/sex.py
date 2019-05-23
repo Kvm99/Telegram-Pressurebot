@@ -1,3 +1,7 @@
+from buttons import markup_remove
+from states import States
+
+
 def sex(update, context):
     """
     save sex into context.user_data,
@@ -11,4 +15,4 @@ def sex(update, context):
         chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
         )
 
-    return WEIGHT
+    return States.WEIGHT
