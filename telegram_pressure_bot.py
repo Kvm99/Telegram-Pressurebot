@@ -6,23 +6,58 @@ from telegram.ext import (
     Filters,
     ConversationHandler,
     CallbackQueryHandler,
-    )
+)
 import logging
 import datetime
 import re
 
 import telegramcalendar
-from functional_bot import (
-    select_data_from_postgresql,
-    prepare_data_from_potgresql_to_graph,
-    save_user_to_postgresql,
-    save_pressure_to_postgresql,
-    create_graph,
-    analysis_result,
-    if_dates_consecutive
-    )
 
 from settings import TOKEN, PROXY
+
+from handlers.add_pressure import add_pressure
+from handlers.age import age
+from handlers.arm import arm
+from handlers.cancel import cancel
+from handlers.graph_for_period import graph_for_period
+from handlers.greeting import greeting
+from handlers.pressure import pressure
+from handlers.remove_timer import remove_timer
+from handlers.set_timer import set_timer
+from handlers.sex import sex
+from handlers.skip import skip
+from handlers.start_button import start_button
+from handlers.weight import weight
+
+from helpers.analytics import (
+    analysis_pressure_value,
+    analysis_pressure_difference,
+    analysis_result
+)
+from helpers.graph import (
+    create_graph,
+    marking_on_coordinate_axes,
+    make_graph,
+)
+from helpers.timers import (
+    alarm,
+    show_timers,
+    take_time_for_timer
+)
+from helpers.save_select_from_postgresql import (
+    save_pressure_to_postgresql,
+    save_user_to_postgresql,
+    select_data_from_postgresql
+)
+from helpers.prepare_data import (
+    prepare_data_from_potgresql_to_graph,
+    make_list_for_arm,
+    prepare_data_for_one_day,
+    prepare_data_for_many_days,
+    append_to_lists,
+    find_biggest_value_per_day,
+    if_dates_consecutive
+)
 
 
 logging.basicConfig(
@@ -31,8 +66,20 @@ logging.basicConfig(
         filename="bot.log"
     )
 
-START, AGE, SEX, WEIGHT, ADD_PRESSURE, ARM, PRESSURE, GRAPH_FOR_PERIOD, \
-    SET_TIMER, REMOVE_TIMER, START_BUTTON = range(11)  # TODO change stile
+
+class States:
+    START = 1
+    AGE = 2
+    SEX = 3
+    WEIGHT = 4
+    ADD_PRESSURE = 5
+    ARM = 6
+    PRESSURE = 7
+    GRAPH_FOR_PERIOD = 8
+    SET_TIMER = 9
+    REMOVE_TIMER = 10
+    START_BUTTON = 11
+
 
 start_buttons = [
     ["ADD PRESSURE", "SHOW GRAPHS"],
@@ -53,483 +100,6 @@ work_markup = ReplyKeyboardMarkup(work_buttons, one_time_keyboard=True)
 markup_remove = ReplyKeyboardRemove(selective=False)
 
 
-def greeting(update, context):
-    """
-    greeting and ask for age input
-    """
-    user_text = update.message
-    text = (
-        '''
-        Hi, %s, I'm a PressureKeeperBot.
-
-        For better analytics please enter
-        YOUR AGE:
-
-        send /cancel to stop talking to me
-        or /skip to go to menu.
-        '''
-        % user_text['chat']['first_name']
-        )
-
-    user_name = user_text['chat']['username']
-    context.user_data['user_name'] = user_name
-
-    context.bot.send_message(
-        chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
-        )
-
-    return AGE
-
-
-def age(update, context):
-    """
-    save age into context.user_data,
-    ask sex
-    """
-    user_input = update.message.text
-    context.user_data['age'] = user_input
-    # TODO modify age every year
-
-    text = "Choose your sex:"
-
-    context.bot.send_message(
-        chat_id=update.message.chat_id, text=text, reply_markup=sex_markup
-        )
-
-    return SEX
-
-
-def sex(update, context):
-    """
-    save sex into context.user_data,
-    ask weight
-    """
-    user_input = update.message.text
-    context.user_data['sex'] = user_input
-
-    text = "Also enter your weight:"
-    context.bot.send_message(
-        chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
-        )
-
-    return WEIGHT
-
-
-def weight(update, context):
-    """
-    save weight into context.user_data,
-    ask work
-    """
-    user_input = update.message.text
-    context.user_data['weight'] = user_input
-
-    text = "Choose nature of your work"
-
-    context.bot.send_message(
-        chat_id=update.message.chat_id, text=text, reply_markup=work_markup
-        )
-
-    return ADD_PRESSURE
-
-
-def add_pressure(update, context):
-    """
-    save work into context.user_data,
-    save all user data into Postgresql
-    ask name of the arm for a new pressure data,
-    save it into context
-    """
-    user_input = update.message.text
-    context.user_data['work'] = user_input
-
-    username = context.user_data['user_name']
-    sex = context.user_data['sex']
-    age = context.user_data['age']
-    weight = context.user_data['weight']
-    work = context.user_data['work']
-
-    save_user_to_postgresql(username, sex, age, weight, work)
-
-    text = (
-        '''
-        Let's save your pressure data.
-
-        Which arm have you used?
-
-        send /skip to go to menu
-
-        '''
-        )
-
-    context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text=text,
-        reply_markup=arms_markup
-        )
-
-    return ARM
-
-
-def start_button(update, context):
-    user_input = update.message.text
-
-    if user_input == "ADD PRESSURE":
-        context.bot.send_message(
-            chat_id=update.message.chat_id,
-            text="Which arm have you used?",
-            reply_markup=arms_markup
-            )
-        return ARM
-
-    elif user_input == "SET TIMER":
-        context.bot.send_message(
-            chat_id=update.message.chat_id,
-            text="Enter time to reminder, like 21:14",
-            reply_markup=markup_remove
-            )
-        return SET_TIMER
-
-    elif user_input == "REMOVE TIMER":
-        context.bot.send_message(
-            chat_id=update.message.chat_id,
-            text="Which timer you'd like to stop? Enter like 20:18",
-            reply_markup=markup_remove
-            )
-        return REMOVE_TIMER
-
-    elif user_input == "SHOW TIMERS":
-        return show_timers(update, context)
-
-    elif user_input == "SHOW GRAPHS":
-        context.bot.send_message(
-            chat_id=update.message.chat_id,
-            text="Choose period for graphs",
-            reply_markup=telegramcalendar.create_calendar()
-            )
-        return GRAPH_FOR_PERIOD
-
-    elif user_input == "Add or change personal data to better analytics":
-        context.bot.send_message(
-            chat_id=update.message.chat_id,
-            text="Enter your AGE:",
-            reply_markup=markup_remove
-            )
-        return AGE
-
-    else:
-        raise NameError('Incorrect input')
-
-
-def arm(update, context):
-    """
-    ask user pressure data,
-    save arm-input into context,
-    close arm buttons
-    """
-    user_input_arm = update.message.text
-    context.user_data['arm'] = user_input_arm
-    text = (
-        '''
-        Ok, enter pressure data and pulse
-        like 120/70 82 or
-        systolic diastolic pulse
-        '''
-        )
-    context.bot.send_message(
-        chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
-        )
-
-    return PRESSURE
-
-
-def pressure(update, context):
-    """
-    take arm and pressure
-    prepare pressure data like ['180', '90']
-    take current datetime
-    prepare and write new data to postgreSQL:
-    username, systolic, diastolic, timestamp, date, arm
-    Return calendar
-    """
-    arm = context.user_data.get('arm')
-    username = context.user_data.get('user_name')
-    user_input_pressure = update.message.text
-
-    timestamp = datetime.datetime.now()
-    list_pressure = re.split(r'[\^\,\.:;\\/\s]', user_input_pressure)
-
-    try:
-        systolic, diastolic, pulse = list_pressure[0], list_pressure[1], list_pressure[2]
-        save_pressure_to_postgresql(
-            username, systolic, diastolic, timestamp, arm, pulse
-            )
-    except (ValueError, IndexError):
-        systolic, diastolic = list_pressure[0], list_pressure[1]
-        save_pressure_to_postgresql(
-            username, systolic, diastolic, timestamp, arm
-            )
-
-    analytics = analysis_result(systolic, diastolic)
-
-    text = (
-        '''
-        New pressure data added. \n
-        %s
-        ''' % analytics
-        )
-
-    context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text=text,
-        reply_markup=start_markup
-        )
-
-    return START_BUTTON
-
-
-def graph_for_period(update, context):
-    """
-    Take two dates from user input in calendar.
-    send them to user,
-    take current-user data from postgreSQL
-    prepare data to graph
-    return left arm and right arm graph.png for the choosen period
-
-    """
-    selected, date = telegramcalendar.process_calendar_selection(
-        update, context
-        )
-    str_date = date.strftime("%Y-%m-%d")
-
-    if selected:
-        context.bot.send_message(
-            chat_id=update.callback_query.message.chat_id,
-            text="You selected %s" % str_date,
-            reply_markup=markup_remove
-            )
-
-    if 'first_date' not in context.user_data:
-        context.user_data['first_date'] = str_date
-
-    elif 'second_date' not in context.user_data:
-        context.user_data['second_date'] = str_date
-        make_graph(update, context)
-
-        text = "What you'd like to do next?"
-
-        context.bot.send_message(
-            chat_id=update.callback_query.message.chat_id,
-            text=text,
-            reply_markup=start_markup)
-
-        if 'first_date' in context.user_data:
-            del context.user_data['first_date']
-
-        if 'second_date' in context.user_data:
-            del context.user_data['second_date']
-
-        return START_BUTTON
-
-
-def make_graph(update, context):
-    """
-    take data form postgresql,
-    find correct information for requested dates,
-    makes graphs.
-    Delete requested dates from context
-    """
-    first_date = context.user_data.get('first_date')
-    last_date = context.user_data.get('second_date')
-    user = context.user_data.get('user_name')
-
-    end_date = datetime.datetime.strptime(last_date, "%Y-%m-%d")
-    end = end_date + datetime.timedelta(days=1)
-    str_end_date = end.strftime("%Y-%m-%d")
-
-    if if_dates_consecutive(first_date, last_date) is True:
-        pressure_data = select_data_from_postgresql(user, first_date, str_end_date)
-
-    else:
-        context.bot.send_message(
-                chat_id=update.callback_query.message.chat_id,
-                text="Sequence of days is broken",
-                reply_markup=start_markup
-                )
-        return START_BUTTON
-
-    arms = ["Left", "Right"]
-
-    for arm in arms:
-        try:
-            arm_data = prepare_data_from_potgresql_to_graph(pressure_data, arm)
-            graph = create_graph(arm_data)
-            context.bot.send_document(
-                chat_id=update.callback_query.message.chat_id,
-                document=open(graph, 'rb')
-            )
-
-        except ValueError:
-            context.bot.send_message(
-                chat_id=update.callback_query.message.chat_id,
-                text="There aren't any %s arm data per dates" % arm,
-                reply_markup=start_markup
-                )
-    return START_BUTTON
-
-
-def take_time_for_timer(update, context):
-    """
-    take time from user and save it into context
-    if it exists, add new value
-    """
-    text = "Enter time to daily reminder, like 21:14"
-    context.bot.send_message(
-        chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
-        )
-
-    return SET_TIMER
-
-
-def alarm(context):
-    """
-    Send the alarm message
-    """
-    job = context.job
-    context.bot.send_message(
-        job.context, text="IT'S TIME to measure arterial pressure"
-        )
-
-    return START_BUTTON
-
-
-def set_timer(update, context):
-    """
-    take new value for timer,
-    added it into context.user_data like ['alarm_time'] = ['21:14'],
-    make job for timer, put it into chat_data like chat_data['21:14'] = job
-    """
-    new_timer = update.message.text
-    timer = datetime.datetime.strptime(new_timer, "%H:%M").time()
-    timer_list = []
-
-    if 'alarm_time' in context.user_data:
-        timer_list = context.user_data.get('alarm_time')
-        timer_list.append(timer)
-
-    else:
-        context.user_data['alarm_time'] = timer_list
-        timer_list.append(timer)
-
-    job = context.job_queue.run_daily(
-        alarm, timer, context=update.message.chat_id
-        )
-    context.chat_data[new_timer] = job
-
-    update.message.reply_text(
-        'Timer successfully set!',
-        reply_markup=start_markup
-        )
-
-    return START_BUTTON
-
-
-def remove_timer(update, context):
-    """
-    remove timer in the job queue,
-    if it's not exist, sent message
-    """
-    existed_timer = update.message.text
-
-    try:
-        timer = datetime.datetime.strptime(existed_timer, "%H:%M").time()
-
-    except ValueError:
-        update.message.reply_text(
-            "Please enter like 21:34",
-            reply_markup=start_markup)
-
-    timer_list = context.user_data.get('alarm_time')
-
-    if timer_list is not None and timer in timer_list:
-        job = context.chat_data.get(existed_timer)
-
-        job.schedule_removal()
-        timer_list.remove(timer)
-
-        update.message.reply_text(
-            "Timer successfully stoped",
-            reply_markup=start_markup
-            )
-    # elif user would like to delete all the timers
-    # context.job_queue.stop()
-
-    else:
-        update.message.reply_text(
-            "There isn't such timer",
-            reply_markup=start_markup
-            )
-
-    return START_BUTTON
-
-
-def show_timers(update, context):
-    """
-    show all existed timers
-    """
-    timers = context.user_data.get('alarm_time')
-    if timers is not None:
-        text = ""
-        for time in timers:
-            text += "%s \n" % time
-
-        context.bot.send_message(
-            chat_id=update.message.chat_id,
-            text=text,
-            reply_markup=start_markup
-            )
-
-    else:
-        text = "There aren't any timers"
-        context.bot.send_message(
-            chat_id=update.message.chat_id,
-            text=text,
-            reply_markup=start_markup
-            )
-
-    return START_BUTTON
-
-
-def cancel(update, context):
-    """
-    close the conversation,
-    return START possition of the conversation handler
-    """
-    text = (
-        "Bye! I hope we can talk again some day."
-    )
-    context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text=text,
-        reply_markup=start_markup)
-
-    return START_BUTTON
-
-
-def skip(update, context):
-    """
-    close the conversation,
-    return START possition of the conversation handler
-    """
-    text = "Ok, you could do it later"
-    context.bot.send_message(
-        chat_id=update.message.chat_id,
-        text=text,
-        reply_markup=start_markup
-        )
-
-    return START_BUTTON
-
-
 def main():
     updater = Updater(token=TOKEN, request_kwargs=PROXY, use_context=True)
     dispatcher = updater.dispatcher
@@ -539,27 +109,27 @@ def main():
 
         states={
 
-            START: [CommandHandler('start', greeting)],
+            States.START: [CommandHandler('start', greeting)],
 
-            AGE: [MessageHandler(Filters.text, age)],
+            States.AGE: [MessageHandler(Filters.text, age)],
 
-            SEX: [MessageHandler(Filters.text, sex)],
+            States.SEX: [MessageHandler(Filters.text, sex)],
 
-            WEIGHT: [MessageHandler(Filters.text, weight)],
+            States.WEIGHT: [MessageHandler(Filters.text, weight)],
 
-            ADD_PRESSURE: [MessageHandler(Filters.text, add_pressure)],
+            States.ADD_PRESSURE: [MessageHandler(Filters.text, add_pressure)],
 
-            ARM: [MessageHandler(Filters.regex('^(Right|Left)$'), arm)],
+            States.ARM: [MessageHandler(Filters.regex('^(Right|Left)$'), arm)],
 
-            PRESSURE: [MessageHandler(Filters.text, pressure)],
+            States.PRESSURE: [MessageHandler(Filters.text, pressure)],
 
-            GRAPH_FOR_PERIOD: [CallbackQueryHandler(graph_for_period)],
+            States.GRAPH_FOR_PERIOD: [CallbackQueryHandler(graph_for_period)],
 
-            SET_TIMER: [MessageHandler(Filters.text, set_timer)],
+            States.SET_TIMER: [MessageHandler(Filters.text, set_timer)],
 
-            REMOVE_TIMER: [MessageHandler(Filters.text, remove_timer)],
+            States.REMOVE_TIMER: [MessageHandler(Filters.text, remove_timer)],
 
-            START_BUTTON: [MessageHandler(Filters.text, start_button)]
+            States.START_BUTTON: [MessageHandler(Filters.text, start_button)]
 
         },
 
