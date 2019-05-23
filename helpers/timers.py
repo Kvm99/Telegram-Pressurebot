@@ -1,3 +1,6 @@
+from buttons import start_markup
+from states import States
+
 def alarm(context):
     """
     Send the alarm message
@@ -34,7 +37,7 @@ def show_timers(update, context):
             reply_markup=start_markup
             )
 
-    return START_BUTTON
+    return States.START_BUTTON
 
 
 def take_time_for_timer(update, context):

@@ -1,25 +1,6 @@
 import datetime
 
 
-def prepare_data_from_potgresql_to_graph(pressure_list, arm):
-    """
-    if it's only one-day data, make graph with time-indexes,
-    if there are a lot of days and pressure-records,
-    find the biggest value per each day.
-    return: [systolic],[diastolic],[date_list], arm
-    """
-    pressure_list_new = make_list_for_arm(pressure_list, arm)
-
-    if len(pressure_list_new) == 0:
-        raise ValueError("There aren't any data per date")
-
-    elif len(pressure_list_new) == 1:
-        return prepare_data_for_one_day(pressure_list_new, arm)
-
-    elif len(pressure_list_new) > 1:
-        return prepare_data_for_many_days(pressure_list_new, arm)
-
-
 def make_list_for_arm(pressure_list, arm):
     """
     from pressure_list makes list for "Left" or "Right" arm,
@@ -121,11 +102,3 @@ def find_biggest_value_per_day(day_data):
     systolic, diastolic = max(values)
 
     return systolic, diastolic
-
-
-def if_dates_consecutive(first_date, last_date):
-    datetime_first_date = datetime.datetime.strptime(first_date, "%Y-%m-%d")
-    datetime_last_date = datetime.datetime.strptime(last_date, "%Y-%m-%d")
-
-    if datetime_last_date >= datetime_first_date:
-        return True
