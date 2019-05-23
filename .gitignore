@@ -3,11 +3,12 @@ settings.py
 Right arm_graph.png
 Left arm_graph.png
 *json
-__pycache__/
 myvenv/
 bot.log
 first_version/
 Left_graph.png
 Right_graph.png
-__init__.py
 server.sh
+server.txt
+*.pyc
+helpers/settings_postgresql.py
