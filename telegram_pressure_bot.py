@@ -1,4 +1,3 @@
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -8,10 +7,7 @@ from telegram.ext import (
     CallbackQueryHandler,
 )
 import logging
-import datetime
-import re
-
-import telegramcalendar
+from states import States
 
 from settings import TOKEN, PROXY
 
@@ -29,75 +25,12 @@ from handlers.skip import skip
 from handlers.start_button import start_button
 from handlers.weight import weight
 
-from helpers.analytics import (
-    analysis_pressure_value,
-    analysis_pressure_difference,
-    analysis_result
-)
-from helpers.graph import (
-    create_graph,
-    marking_on_coordinate_axes,
-    make_graph,
-)
-from helpers.timers import (
-    alarm,
-    show_timers,
-    take_time_for_timer
-)
-from helpers.save_select_from_postgresql import (
-    save_pressure_to_postgresql,
-    save_user_to_postgresql,
-    select_data_from_postgresql
-)
-from helpers.prepare_data import (
-    prepare_data_from_potgresql_to_graph,
-    make_list_for_arm,
-    prepare_data_for_one_day,
-    prepare_data_for_many_days,
-    append_to_lists,
-    find_biggest_value_per_day,
-    if_dates_consecutive
-)
-
 
 logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO,
         filename="bot.log"
     )
-
-
-class States:
-    START = 1
-    AGE = 2
-    SEX = 3
-    WEIGHT = 4
-    ADD_PRESSURE = 5
-    ARM = 6
-    PRESSURE = 7
-    GRAPH_FOR_PERIOD = 8
-    SET_TIMER = 9
-    REMOVE_TIMER = 10
-    START_BUTTON = 11
-
-
-start_buttons = [
-    ["ADD PRESSURE", "SHOW GRAPHS"],
-    ["SET TIMER", "REMOVE TIMER", "SHOW TIMERS"],
-    ["Add or change personal data to better analytics"]
-    ]
-start_markup = ReplyKeyboardMarkup(start_buttons, one_time_keyboard=True)
-
-sex_buttons = [["male", "female", "other"]]
-sex_markup = ReplyKeyboardMarkup(sex_buttons, one_time_keyboard=True)
-
-arm_buttons = [["Right", "Left"]]
-arms_markup = ReplyKeyboardMarkup(arm_buttons, one_time_keyboard=True)
-
-work_buttons = [["Active", "Sitting", "Combine"]]
-work_markup = ReplyKeyboardMarkup(work_buttons, one_time_keyboard=True)
-
-markup_remove = ReplyKeyboardRemove(selective=False)
 
 
 def main():

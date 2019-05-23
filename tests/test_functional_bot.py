@@ -28,23 +28,25 @@ from .data_for_functional_bot_test import (
     arm_list,
     arm_list_v2
     )
-
-from functional_bot import (
-    make_list_for_arm,
-    prepare_data_from_potgresql_to_graph,
-    prepare_data_for_one_day,
-    prepare_data_for_many_days,
-    select_data_from_postgresql,
-    save_user_to_postgresql,
-    if_dates_consecutive,
-    create_graph,
-    append_to_lists,
-    find_biggest_value_per_day,
-    marking_on_coordinate_axes,
+from helpers.analytics import (
     analysis_pressure_value,
     analysis_pressure_difference,
     analysis_result
-    )
+)
+from helpers.graph import (
+    if_dates_consecutive,
+    prepare_data_from_potgresql_to_graph,
+    create_graph,
+    marking_on_coordinate_axes,
+    make_graph
+)
+from helpers.prepare_data import (
+    make_list_for_arm,
+    prepare_data_for_one_day,
+    prepare_data_for_many_days,
+    append_to_lists,
+    find_biggest_value_per_day
+)
 
 from db_settings import config
 
