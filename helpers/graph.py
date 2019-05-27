@@ -2,6 +2,7 @@ import matplotlib.pyplot as plot
 from matplotlib.pyplot import savefig
 import os
 import datetime
+import io
 
 from states import States
 from buttons import start_markup
@@ -64,11 +65,12 @@ def create_graph(arm_list):
     for ax in fig.axes:
         ax.grid(True)
 
-    directory = os.path.dirname(os.path.abspath(__file__))
-    graph_name = os.path.join(directory, '%s_graph.png' % arm)
-    savefig(graph_name)
-
-    return '%s_graph.png' % arm
+    graph_name = '%s_graph.png' % arm
+    graph_io = io.BytesIO()
+    graph_io.name = graph_name
+    savefig(graph_io, format='png')
+    graph_io.seek(0)
+    return graph_io
 
 
 def marking_on_coordinate_axes(arm_list):
@@ -118,10 +120,11 @@ def make_graph(update, context):
     for arm in arms:
         try:
             arm_data = prepare_data_from_potgresql_to_graph(pressure_data, arm)
-            graph = create_graph(arm_data)
+            print(arm_data)
+            graph_io = create_graph(arm_data)
             context.bot.send_document(
                 chat_id=update.callback_query.message.chat_id,
-                document=open(graph, 'rb')
+                document=graph_io
             )
 
         except ValueError:
