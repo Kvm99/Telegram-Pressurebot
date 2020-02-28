@@ -1,4 +1,4 @@
-# Telegram Arterial pressure bot. Version 1.0 <img align="right" width="200" height="200" src="https://github.com/Kvm99/Telegram-Pressurebot/blob/master/art-pressure.png">
+# Telegram Arterial pressure bot. V.1.0 <img align="right" width="200" height="200" src="https://github.com/Kvm99/Telegram-Pressurebot/blob/master/art-pressure.png">
 
 [![License: MIT](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
@@ -36,4 +36,4 @@ This project is licensed under BSD-3 license. This license allows unlimited redi
 -------------
 Facebook: <https://www.facebook.com/maria.kuznetsova.1048>
 
-Email: <mari.kuznecova90@gmail.com>
+Email: <mary@filonova.dev>
