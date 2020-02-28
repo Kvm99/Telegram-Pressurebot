@@ -18,7 +18,7 @@ pkg-resources==0.0.0
 pluggy==0.13.1
 psycopg2==2.8.4
 psycopg2-binary==2.8.4
-py==1.8.0
+py==1.8.1
 pycodestyle==2.5.0
 pycparser==2.19
 pyflakes==2.1.1
