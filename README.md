@@ -5,9 +5,13 @@
 ### @ArtPressure_bot
 #### <https://t.me/ArtPressure_bot>
 -------------
-Bot which collect your pressure data and makes graphs.
-It also remind you when it's time to measure your pressure and
-makes recommendation about health
+The bot was created when I started my way with python.  
+I can see architecture and other limitations in code,
+but decided to save it,  
+because it provides me an oportunity to measure and assess my progress through time.  
+
+Pressure bot collects arterial pressure data and makes graphs.  
+It also reminds when it's time to measure pressure and makes recommendation about health.
 
 
 ## Usage
