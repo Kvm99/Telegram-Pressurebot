@@ -15,7 +15,6 @@ It also reminds when it's time to measure pressure and makes recommendation abou
 
 
 ## Usage
--------------
 To use the @ArtPressure_bot you need to install telegram first
 and connect to the bot.
 A full working example on how is works provided in telegram_pressure_bot.py.
@@ -23,21 +22,17 @@ Minimum needed moduls are:
 python-telegram-bot==12.0.0b1, psycopg2==2.8.1, matplotlib==3.0.3
 
 ## Contributing
--------------
 As I use this for my own projects, I know this might not be the perfect approach for all the projects out there. If you have any ideas, just open an issue and tell me what you think.
 
 If you'd like to contribute, please fork the repository and make changes as you'd like. Pull requests are warmly welcome.
 
 ## DEMO
--------------
 ![](Pressure_bot.gif)
 
 ## Licensing
--------------
 This project is licensed under BSD-3 license. This license allows unlimited redistribution for any purpose as long as its copyright notices and the license's disclaimers of warranty are maintained. 
 
 ## Contacts
--------------
 Facebook: <https://www.facebook.com/maria.kuznetsova.1048>
 
 Email: <mary@filonova.dev>
