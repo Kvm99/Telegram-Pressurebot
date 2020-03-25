@@ -9,7 +9,8 @@ from telegram.ext import (
 import logging
 from states import States
 
-from settings import TOKEN, PROXY
+from tokens import TOKEN
+from settings import PROXY
 
 from handlers.add_pressure import add_pressure
 from handlers.age import age
