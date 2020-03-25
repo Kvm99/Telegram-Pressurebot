@@ -1,6 +1,7 @@
 from buttons import start_markup
 from states import States
 
+
 def skip(update, context):
     """
     close the conversation,

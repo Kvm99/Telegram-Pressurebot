@@ -1,6 +1,7 @@
 from buttons import markup_remove
 from states import States
 
+
 def greeting(update, context):
     """
     greeting and ask for age input

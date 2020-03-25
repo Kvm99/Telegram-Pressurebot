@@ -26,16 +26,18 @@ def separate_callback_data(data):
 def create_calendar(year=None, month=None):
     """
     Create an inline keyboard with the provided year and month
-    :param int year: Year to use in the calendar, if None the current year is used.
-    :param int month: Month to use in the calendar, if None the current month is used.
+    :param int year: Year to use in the calendar,
+    if None the current year is used.
+    :param int month: Month to use in the calendar,
+    if None the current month is used.
     :return: Returns the InlineKeyboardMarkup object with the calendar.
     """
     now = datetime.datetime.now()
-    if year is None: 
+    if year is None:
         year = now.year
-    if month is None: 
+    if month is None:
         month = now.month
-    
+
     data_ignore = create_callback_data("IGNORE", year, month, 0)
     keyboard = []
 
@@ -63,20 +65,35 @@ def create_calendar(year=None, month=None):
             else:
                 row.append(InlineKeyboardButton(
                     str(day),
-                    callback_data=create_callback_data("DAY", year,month,day))
+                    callback_data=create_callback_data(
+                            "DAY",
+                            year,
+                            month,
+                            day
+                        ))
                     )
         keyboard.append(row)
 
     # Last row - Buttons
     row = []
     row.append(InlineKeyboardButton(
-        "<", callback_data=create_callback_data("PREV-MONTH", year, month,day))
+        "<", callback_data=create_callback_data(
+            "PREV-MONTH",
+            year,
+            month,
+            day
+        ))
     )
     row.append(InlineKeyboardButton(
         " ", callback_data=data_ignore)
     )
     row.append(InlineKeyboardButton(
-            ">", callback_data=create_callback_data("NEXT-MONTH", year, month,day))
+            ">", callback_data=create_callback_data(
+                "NEXT-MONTH",
+                year,
+                month,
+                day
+            ))
         )
     keyboard.append(row)
 
@@ -85,11 +102,14 @@ def create_calendar(year=None, month=None):
 
 def process_calendar_selection(update, context):
     """
-    Process the callback_query. This method generates a new calendar if forward or
-    backward is pressed. This method should be called inside a CallbackQueryHandler.
+    Process the callback_query. This method generates a new calendar
+    if forward or backward is pressed.
+    This method should be called inside a CallbackQueryHandler.
     :param telegram.Bot bot: The bot, as provided by the CallbackQueryHandler
-    :param telegram.Update update: The update, as provided by the CallbackQueryHandler
-    :return: Returns a tuple (Boolean,datetime.datetime), indicating if a date is selected
+    :param telegram.Update update: The update,
+    as provided by the CallbackQueryHandler
+    :return: Returns a tuple (Boolean,datetime.datetime),
+    indicating if a date is selected
                 and returning the date if so.
     """
     ret_data = (False, None)

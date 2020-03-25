@@ -50,7 +50,7 @@ def prepare_data_for_many_days(pressure_list_new, arm):
     if there are a lot of day's data in list,
     take one by one and makes lists:
     systolic_list, diastolic_list, date_list, arm.
-    When there are a lot of values in a day, 
+    When there are a lot of values in a day,
     find biggest one
     """
     systolic_list, diastolic_list, date_list = [], [], []
@@ -80,7 +80,7 @@ def prepare_data_for_many_days(pressure_list_new, arm):
 def append_to_lists(
     systolic_list, diastolic_list, date_list,
     systolic, diastolic, date
-    ):
+):
     """
     Append systolic, diastolic, date to similar lists
     """

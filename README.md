@@ -1,4 +1,4 @@
-# Telegram Arterial pressure bot. V.1.0 <img align="right" width="200" height="200" src="https://github.com/Kvm99/Telegram-Pressurebot/blob/master/art-pressure.png">
+# Telegram Arterial pressure bot. V.1.0 <img align="right" width="200" height="200" src="https://github.com/Kvm99/Telegram-Pressurebot/blob/master/static/art-pressure.png">
 
 [![License: MIT](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
@@ -27,7 +27,7 @@ As I use this for my own projects, I know this might not be the perfect approach
 If you'd like to contribute, please fork the repository and make changes as you'd like. Pull requests are warmly welcome.
 
 ## DEMO
-![](Pressure_bot.gif)
+![](static/Pressure_bot.gif)
 
 ## Licensing
 This project is licensed under BSD-3 license. This license allows unlimited redistribution for any purpose as long as its copyright notices and the license's disclaimers of warranty are maintained. 

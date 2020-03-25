@@ -23,7 +23,9 @@ def pressure(update, context):
     list_pressure = re.split(r'[\^\,\.:;\\/\s]', user_input_pressure)
 
     try:
-        systolic, diastolic, pulse = list_pressure[0], list_pressure[1], list_pressure[2]
+        systolic = list_pressure[0]
+        diastolic = list_pressure[1]
+        pulse = list_pressure[2]
         save_pressure_to_postgresql(
             username, systolic, diastolic, timestamp, arm, pulse
             )

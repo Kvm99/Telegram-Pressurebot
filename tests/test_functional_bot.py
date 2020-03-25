@@ -1,4 +1,3 @@
-import copy
 import datetime
 import os
 import os.path as path
@@ -6,8 +5,7 @@ import psycopg2
 import pytest
 import struct
 
-import functional_bot
-from .data_for_functional_bot_test import (
+from .tests_data.data_for_functional_bot_test import (
     pressure_list,
     pressure_list_v2,
     pressure_list_new,
@@ -16,8 +14,6 @@ from .data_for_functional_bot_test import (
     pressure_list_new_v4,
     pressure_list_new_v5,
     pressure_list_new_v6,
-    empty_pressure_list,
-    short_pressure_list,
     systolic_list,
     diastolic_list,
     date_list,
@@ -38,7 +34,6 @@ from helpers.graph import (
     prepare_data_from_potgresql_to_graph,
     create_graph,
     marking_on_coordinate_axes,
-    make_graph
 )
 from helpers.prepare_data import (
     make_list_for_arm,
@@ -48,21 +43,28 @@ from helpers.prepare_data import (
     find_biggest_value_per_day
 )
 
-from db_settings import config
-
 
 def test_make_list_for_arm_if_days():
     assert make_list_for_arm(pressure_list, "Right") == [
                 [
                     (109, 'Mary2z', '130', '70',
                         datetime.datetime(
-                        2019, 4, 20, 13, 16, 41, 521658, tzinfo=psycopg2.tz.FixedOffsetTimezone(offset=180, name=None)),
+                            2019, 4, 20, 13, 16, 41, 521658,
+                            tzinfo=psycopg2.tz.FixedOffsetTimezone(
+                                offset=180,
+                                name=None
+                            )
+                        ),
                         'Right', '80')
                 ],
                 [
                     (191, 'Mary2z', '123', '67',
                         datetime.datetime(
-                        2019, 4, 22, 15, 44, 39, 444169, tzinfo=psycopg2.tz.FixedOffsetTimezone(offset=180, name=None)),
+                            2019, 4, 22, 15, 44, 39, 444169,
+                            tzinfo=psycopg2.tz.FixedOffsetTimezone(
+                                offset=180, name=None
+                                )
+                            ),
                         'Right', '80')
                 ]
             ]
@@ -71,28 +73,49 @@ def test_make_list_for_arm_if_days():
                 [
                     (108, 'Mary2z', '130', '80',
                         datetime.datetime(
-                        2019, 4, 20, 12, 26, 45, 826178, tzinfo=psycopg2.tz.FixedOffsetTimezone(offset=180, name=None)),
+                            2019, 4, 20, 12, 26, 45, 826178,
+                            tzinfo=psycopg2.tz.FixedOffsetTimezone(
+                                offset=180, name=None
+                            )
+                        ),
                         'Left', '80')
                 ],
                 [
                     (117, 'Mary2z', '100', '50',
                         datetime.datetime(
-                        2019, 4, 21, 22, 1, 30, 840303, tzinfo=psycopg2.tz.FixedOffsetTimezone(offset=180, name=None)),
+                            2019, 4, 21, 22, 1, 30, 840303,
+                            tzinfo=psycopg2.tz.FixedOffsetTimezone(
+                                offset=180, name=None
+                            )
+                        ),
                         'Left', '80'),
                     (118, 'Mary2z', '120', '67',
                         datetime.datetime(
-                        2019, 4, 21, 22, 2, 28, 311614, tzinfo=psycopg2.tz.FixedOffsetTimezone(offset=180, name=None)),
+                            2019, 4, 21, 22, 2, 28, 311614,
+                            tzinfo=psycopg2.tz.FixedOffsetTimezone(
+                                offset=180,
+                                name=None
+                                )
+                            ),
                         'Left', '80'),
                 ],
                 [
                     (192, 'Mary2z', '123', '67',
                         datetime.datetime(
-                        2019, 4, 22, 15, 46, 58, 363557, tzinfo=psycopg2.tz.FixedOffsetTimezone(offset=180, name=None)),
+                            2019, 4, 22, 15, 46, 58, 363557,
+                            tzinfo=psycopg2.tz.FixedOffsetTimezone(
+                                offset=180, name=None
+                                )
+                            ),
                         'Left', '80'),
 
                     (194, 'Mary2z', '213', '42',
                         datetime.datetime(
-                        2019, 4, 22, 15, 49, 17, 999382, tzinfo=psycopg2.tz.FixedOffsetTimezone(offset=180, name=None)),
+                            2019, 4, 22, 15, 49, 17, 999382,
+                            tzinfo=psycopg2.tz.FixedOffsetTimezone(
+                                offset=180, name=None
+                            )
+                        ),
                         'Left', '80')
                 ]
             ]
@@ -103,12 +126,21 @@ def test_make_list_for_arm_if_day():
         [
             (192, 'Mary2z', '123', '67',
                 datetime.datetime(
-                2019, 4, 22, 15, 46, 58, 363557, tzinfo=psycopg2.tz.FixedOffsetTimezone(offset=180, name=None)),
+                    2019, 4, 22, 15, 46, 58, 363557,
+                    tzinfo=psycopg2.tz.FixedOffsetTimezone(
+                        offset=180,
+                        name=None
+                        )
+                    ),
                 'Left', '80'),
 
             (194, 'Mary2z', '213', '42',
                 datetime.datetime(
-                2019, 4, 22, 15, 49, 17, 999382, tzinfo=psycopg2.tz.FixedOffsetTimezone(offset=180, name=None)),
+                    2019, 4, 22, 15, 49, 17, 999382,
+                    tzinfo=psycopg2.tz.FixedOffsetTimezone(
+                        offset=180, name=None
+                    )
+                ),
                 'Left', '80')
         ]
     ]
@@ -117,7 +149,11 @@ def test_make_list_for_arm_if_day():
         [
             (191, 'Mary2z', '123', '67',
                 datetime.datetime(
-                2019, 4, 22, 15, 44, 39, 444169, tzinfo=psycopg2.tz.FixedOffsetTimezone(offset=180, name=None)),
+                    2019, 4, 22, 15, 44, 39, 444169,
+                    tzinfo=psycopg2.tz.FixedOffsetTimezone(
+                        offset=180, name=None
+                    )
+                ),
                 'Right', '80')
         ]
     ]
@@ -135,10 +171,16 @@ def test_make_list_for_arm_if_no_day():
 
 def test_prepare_data_from_potgresql_to_graph_if_empty():
     with pytest.raises(ValueError) as error:
-        assert prepare_data_from_potgresql_to_graph([], "Right") in str(error.value)
+        assert prepare_data_from_potgresql_to_graph(
+            [],
+            "Right"
+        ) in str(error.value)
 
     with pytest.raises(ValueError) as error:
-        assert prepare_data_from_potgresql_to_graph([], "Left") in str(error.value)
+        assert prepare_data_from_potgresql_to_graph(
+            [],
+            "Left"
+        ) in str(error.value)
 
 
 def test_prepare_data_from_potgresql_to_graph_if_one_day():
@@ -166,16 +208,27 @@ def test_prepare_data_from_potgresql_to_graph_if_many_days():
 
 def test_prepare_data_from_potgresql_to_graph_if_other():
     with pytest.raises(TypeError) as error:
-        assert prepare_data_from_potgresql_to_graph(123, "Left") in str(error.value)
-    
-    with pytest.raises(ValueError) as error:
-        assert prepare_data_from_potgresql_to_graph([], "Left") in str(error.value)
+        assert prepare_data_from_potgresql_to_graph(
+            123,
+            "Left"
+        ) in str(error.value)
 
     with pytest.raises(ValueError) as error:
-        assert prepare_data_from_potgresql_to_graph({}, "Left") in str(error.value)
+        assert prepare_data_from_potgresql_to_graph(
+            [],
+            "Left"
+        ) in str(error.value)
+
+    with pytest.raises(ValueError) as error:
+        assert prepare_data_from_potgresql_to_graph(
+            {},
+            "Left"
+        ) in str(error.value)
 
     with pytest.raises(IndexError) as error:
-        assert prepare_data_from_potgresql_to_graph('smth', "Left") in str(error.value)
+        assert prepare_data_from_potgresql_to_graph(
+            'smth', "Left"
+        ) in str(error.value)
 
 
 def test_prepare_data_for_one_day_if_data():
@@ -220,6 +273,7 @@ def test_prepare_data_for_many_days_if_one_data_per_day():
     assert prepare_data_for_many_days(pressure_list_new_v6, "Left") == (
             ['120', '213'], ['70', '42'], ['2019-04-20', '2019-04-22'], 'Left'
         )
+
 
 def test_prepare_data_for_many_days_if_no_data():
     assert prepare_data_for_many_days([], "Right") == (
@@ -299,14 +353,6 @@ def test_find_biggest_value_per_day():
         assert find_biggest_value_per_day(None) in str(error.value)
 
 
-def test_save_pressure_to_postgresql():
-    pass
-
-
-def test_save_user_to_postgresql():
-    pass
-
-
 def test_if_dates_consecutive():
     assert if_dates_consecutive('2019-02-04', '2019-02-04') is True
     assert if_dates_consecutive('2019-02-04', '2019-02-05') is True
@@ -332,22 +378,22 @@ def test_create_graph():
     create_graph(arm_list)
 
     script_path = path.abspath(path.join(os.getcwd()))
-    graph_path = "Right arm_graph.png"
-    test_graph_path = "test_graph.png"
+    graph_path = "tests/tests_data/test_graph.png"
+    test_graph_path = "tests/tests_data/test_graph_v2.png"
 
     abs_graph_path = os.path.join(script_path, graph_path)
     abs_test_graph_path = os.path.join(script_path, test_graph_path)
 
-    with open(abs_graph_path, 'rb') as f1, \
-        open(abs_test_graph_path, 'rb') as f2:
+    with open(abs_graph_path, 'rb') as f1:
+        with open(abs_test_graph_path, 'rb') as f2:
 
-        while True:
-            b1, b2 = f1.read(1), f2.read(1)
-            if not b1 or not b2:
-                break
-            i = struct.unpack('B', b1)[0] - struct.unpack('B', b2)[0]
+            while True:
+                b1, b2 = f1.read(1), f2.read(1)
+                if not b1 or not b2:
+                    break
+                i = struct.unpack('B', b1)[0] - struct.unpack('B', b2)[0]
 
-            assert i == 0
+                assert i == 0
 
     with pytest.raises(IndexError) as error:
         assert create_graph([]) in str(error.value)

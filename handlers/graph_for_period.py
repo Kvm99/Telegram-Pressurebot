@@ -1,5 +1,4 @@
 import telegramcalendar
-import datetime
 from helpers.graph import make_graph
 from buttons import markup_remove, start_markup
 from states import States

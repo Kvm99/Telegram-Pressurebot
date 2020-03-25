@@ -1,6 +1,7 @@
 from buttons import work_markup
 from states import States
 
+
 def weight(update, context):
     """
     save weight into context.user_data,

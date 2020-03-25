@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plot
 from matplotlib.pyplot import savefig
-import os
 import datetime
 import io
 
@@ -12,6 +11,7 @@ from helpers.prepare_data import (
     prepare_data_for_one_day,
     prepare_data_for_many_days
 )
+
 
 def if_dates_consecutive(first_date, last_date):
     datetime_first_date = datetime.datetime.strptime(first_date, "%Y-%m-%d")
@@ -105,7 +105,10 @@ def make_graph(update, context):
     str_end_date = end.strftime("%Y-%m-%d")
 
     if if_dates_consecutive(first_date, last_date) is True:
-        pressure_data = select_data_from_postgresql(user, first_date, str_end_date)
+        pressure_data = select_data_from_postgresql(
+            user, first_date,
+            str_end_date
+        )
 
     else:
         context.bot.send_message(
@@ -113,7 +116,7 @@ def make_graph(update, context):
                 text="Sequence of days is broken",
                 reply_markup=start_markup
                 )
-        return START_BUTTON
+        return States.START_BUTTON
 
     arms = ["Left", "Right"]
 
@@ -134,5 +137,3 @@ def make_graph(update, context):
                 reply_markup=start_markup
                 )
     return States.START_BUTTON
-
-

@@ -1,5 +1,6 @@
-from buttons import start_markup
+from buttons import start_markup, markup_remove
 from states import States
+
 
 def alarm(context):
     """
@@ -10,7 +11,7 @@ def alarm(context):
         job.context, text="IT'S TIME to measure arterial pressure"
         )
 
-    return START_BUTTON
+    return States.START_BUTTON
 
 
 def show_timers(update, context):
@@ -47,7 +48,9 @@ def take_time_for_timer(update, context):
     """
     text = "Enter time to daily reminder, like 21:14"
     context.bot.send_message(
-        chat_id=update.message.chat_id, text=text, reply_markup=markup_remove
-        )
+        chat_id=update.message.chat_id,
+        text=text,
+        reply_markup=markup_remove
+    )
 
-    return SET_TIMER
+    return States.SET_TIMER
