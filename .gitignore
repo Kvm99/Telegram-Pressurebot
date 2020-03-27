@@ -12,3 +12,4 @@ server.txt
 *.pyc
 helpers/settings_postgresql.py
 tokens.py
+server.sh

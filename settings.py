@@ -1,23 +1,23 @@
-import tokens
 import psycopg2
+import os
 
 
 PROXY = {
-    'proxy_url': tokens.PROXY_URL,
+    'proxy_url': os.environ.get('PROXY_URL'),
     'urllib3_proxy_kwargs': {
-        'username': tokens.PROXY_USERNAME,
-        'password': tokens.PROXY_PASSWORT,
+        'username': os.environ.get('PROXY_USERNAME'),
+        'password': os.environ.get('PROXY_PASSWORT'),
     }
 }
 
 
 def config():
     connection = psycopg2.connect(
-        user=tokens.POSTGRES_USER,
-        password=tokens.POSTGRES_PASSW,
+        user=os.environ.get('POSTGRES_USER'),
+        password=os.environ.get('POSTGRES_PASSW'),
         host='127.0.0.1',
         port='5432',
-        database=tokens.DB_NAME
+        database=os.environ.get('DB_NAME'),
     )
 
     return connection

@@ -7,11 +7,10 @@ from telegram.ext import (
     CallbackQueryHandler,
 )
 import logging
-from states import States
+import os
 
-from tokens import TOKEN
 from settings import PROXY
-
+from states import States
 from handlers.add_pressure import add_pressure
 from handlers.age import age
 from handlers.arm import arm
@@ -35,7 +34,11 @@ logging.basicConfig(
 
 
 def main():
-    updater = Updater(token=TOKEN, request_kwargs=PROXY, use_context=True)
+    updater = Updater(
+        token=os.environ.get('TOKEN'),
+        request_kwargs=PROXY,
+        use_context=True
+    )
     dispatcher = updater.dispatcher
 
     conv_handler = ConversationHandler(
